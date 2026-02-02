@@ -1,0 +1,239 @@
+================================================================================
+MINIAS 데이터베이스 스키마 (XSD에서 추출)
+================================================================================
+
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: 검사
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+DATE                           xsd:dateTime         NULL      
+CODE                           xsd:string(20)       NULL      
+SERIAL_x0020_NUMBER            xsd:string(10)       NULL      
+OPERATOR                       xsd:string(20)       NULL      
+MEAN_x0020_SIGMA               xsd:double           NULL      
+MEAN_x0020_RANGE               xsd:double           NULL      
+WORST_x0020_SIGMA              xsd:double           NULL      
+WORST_x0020_RANGE              xsd:double           NULL      
+SECOND_x0020_TEST              xsd:string(1)        NULL      
+ID_COL                         xsd:int              NULL      
+TEST                           xsd:string(2)        NULL      
+RESULT                         xsd:string(2)        NULL      
+MEAN_x0020_SIGMA_x0020_LIMIT   xsd:double           NULL      
+MEAN_x0020_RANGE_x0020_LIMIT   xsd:double           NULL      
+WORST_x0020_RANGE_x0020_LIMIT  xsd:double           NULL      
+
+총 15개 필드
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: 붙여넣기 오류
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+DATE                           xsd:dateTime         NULL      
+CODE                           xsd:string(255)      NULL      
+SERIAL_x0020_NUMBER            xsd:string(255)      NULL      
+OPERATOR                       xsd:string(255)      NULL      
+MEAN_x0020_SIGMA               xsd:double           NULL      
+MEAN_x0020_RANGE               xsd:double           NULL      
+WORST_x0020_SIGMA              xsd:double           NULL      
+WORST_x0020_RANGE              xsd:double           NULL      
+SECOND_x0020_TEST              xsd:string(255)      NULL      
+ID_COL                         xsd:int              NULL      
+
+총 10개 필드
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: CANC MEASURES BAK Query
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+IDENT                          xsd:double           NULL      
+VALORE                         xsd:string(50)       NULL      
+
+총 2개 필드
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: CANC MEASURES BAK
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+IDENT                          xsd:double           NULL      
+VALORE                         xsd:string(50)       NULL      
+
+총 2개 필드
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: CANC MEASURES ORIG
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+AXIS                           xsd:short            NULL      
+CYCLE                          xsd:short            NULL      
+VALUE                          xsd:double           NULL      
+SECOND_x0020_TEST              xsd:string(1)        NULL      
+WORST_x0020_DATUM              xsd:string(1)        NULL      
+
+총 5개 필드
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: CODES
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+CODE                           xsd:string(11)       NULL      
+NAXIS                          xsd:int              NULL      
+PROBE_x0020_TYPE               xsd:string(30)       NULL      
+X_x002B__x0020_DIR             xsd:short            NULL      
+X-_x0020_DIR                   xsd:short            NULL      
+Y_x002B__x0020_DIR             xsd:short            NULL      
+Y-_x0020_DIR                   xsd:short            NULL      
+Z-_x0020_DIR                   xsd:short            NULL      
+
+총 8개 필드
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: EXCEL SETUP
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+PROBE_x0020_TYPE               xsd:string(10)       NULL      
+CODE                           xsd:string(10)       NULL      
+SERIAL_x0020_NUMBER            xsd:string(10)       NULL      
+OPERATOR                       xsd:string(10)       NULL      
+MEAN_x0020_SIGMA               xsd:string(10)       NULL      
+MEAN_x0020_RANGE               xsd:string(10)       NULL      
+WORST_x0020_RANGE              xsd:string(10)       NULL      
+LIMIT_x0020_MEAN_x0020_RANGE   xsd:string(10)       NULL      
+LIMIT_x0020_WORST_x0020_RANGE  xsd:string(10)       NULL      
+RESULT                         xsd:string(10)       NULL      
+ASSE1_x0020_SIGMA              xsd:string(10)       NULL      
+ASSE1_x0020_RANGE              xsd:string(10)       NULL      
+ASSE1_x0020_START              xsd:string(10)       NULL      
+DELTA_x0020_SECOND             xsd:short            NULL      
+
+총 14개 필드
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: LIMITS
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+TEST_x0020_TYPE                xsd:string(2)        NULL      
+MEAN_x0020_SIGMA               xsd:double           NULL      
+MEAN_x0020_RANGE               xsd:double           NULL      
+WORST_x0020_RANGE              xsd:double           NULL      
+MEAN_x0020_RANGE_x0020_PERFORMANCE xsd:double           NULL      
+WORST_x0020_RANGE_x0020_PERFORMANCE xsd:double           NULL      
+MEAN_x0020_RANGE_x0020_SECOND  xsd:double           NULL      
+WORST_x0020_RANGE_x0020_SECOND xsd:double           NULL      
+
+총 8개 필드
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: MEASURES REGISTERED
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+DATE                           xsd:dateTime         NULL      
+CODE                           xsd:string(20)       NULL      
+SERIAL_x0020_NUMBER            xsd:string(10)       NULL      
+OPERATOR                       xsd:string(20)       NULL      
+MEAN_x0020_SIGMA               xsd:double           NULL      
+MEAN_x0020_RANGE               xsd:double           NULL      
+WORST_x0020_SIGMA              xsd:double           NULL      
+WORST_x0020_RANGE              xsd:double           NULL      
+SECOND_x0020_TEST              xsd:string(1)        NULL      
+ID_COL                         xsd:int              NULL      
+
+총 10개 필드
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: MEASURES
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+AXIS                           xsd:short            NULL      
+CYCLE                          xsd:int              NULL      
+VALUE                          xsd:double           NULL      
+SECOND_x0020_TEST              xsd:string(1)        NULL      
+WORST_x0020_DATUM              xsd:string(1)        NULL      
+
+총 5개 필드
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: OPERATORS
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+OPERATOR                       xsd:string(20)       NULL      
+
+총 1개 필드
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: SETUP
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+TEST_x0020_TYPE                xsd:string(2)        NULL      
+NCYCLES                        xsd:int              NULL      
+NAXIS                          xsd:short            NULL      
+NWORSTDATUMS                   xsd:short            NULL      
+SIGMA_TEST                     xsd:boolean          NOT NULL  
+RANGE_TEST                     xsd:boolean          NOT NULL  
+
+총 6개 필드
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: TEST AXIS RESULTS
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+AXIS                           xsd:short            NULL      
+SIGMA                          xsd:double           NULL      
+RANGE                          xsd:double           NULL      
+SECOND_x0020_TEST              xsd:string(1)        NULL      
+ID_COL                         xsd:int              NULL      
+RESULT                         xsd:string(2)        NULL      
+DIR                            xsd:string(2)        NULL      
+NCYCLES                        xsd:int              NULL      
+
+총 8개 필드
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: TEST RESULTS
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+DATE                           xsd:dateTime         NULL      
+CODE                           xsd:string(20)       NULL      
+SERIAL_x0020_NUMBER            xsd:string(10)       NULL      
+OPERATOR                       xsd:string(20)       NULL      
+MEAN_x0020_SIGMA               xsd:double           NULL      
+MEAN_x0020_RANGE               xsd:double           NULL      
+WORST_x0020_SIGMA              xsd:double           NULL      
+WORST_x0020_RANGE              xsd:double           NULL      
+SECOND_x0020_TEST              xsd:string(1)        NULL      
+ID_COL                         xsd:int              NULL      
+TEST                           xsd:string(2)        NULL      
+RESULT                         xsd:string(2)        NULL      
+MEAN_x0020_SIGMA_x0020_LIMIT   xsd:double           NULL      
+MEAN_x0020_RANGE_x0020_LIMIT   xsd:double           NULL      
+WORST_x0020_RANGE_x0020_LIMIT  xsd:double           NULL      
+
+총 15개 필드
+
+────────────────────────────────────────────────────────────────────────────────
+테이블: TEST SAMPLES
+────────────────────────────────────────────────────────────────────────────────
+필드명                            타입                   NULL      
+------------------------------ -------------------- ----------
+AXIS                           xsd:short            NULL      
+CYCLE                          xsd:short            NULL      
+VALUE                          xsd:double           NULL      
+SECOND_x0020_TEST              xsd:string(1)        NULL      
+WORST_x0020_DATUM              xsd:string(1)        NULL      
+ID_COL                         xsd:int              NULL      
+
+총 6개 필드
