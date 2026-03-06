@@ -1090,10 +1090,10 @@ class ExcelExporter:
             ws.cell(row=2, column=3, value=result.serial_number)
             ws.cell(row=2, column=4, value=result.operator)
             ws.cell(row=2, column=5, value=result.result)
-            ws.cell(row=2, column=6, value=f"{result.mean_sigma:.6f}")
-            ws.cell(row=2, column=7, value=f"{result.mean_range:.6f}")
-            ws.cell(row=2, column=8, value=f"{result.worst_sigma:.6f}")
-            ws.cell(row=2, column=9, value=f"{result.worst_range:.6f}")
+            ws.cell(row=2, column=6, value=f"{result.mean_sigma:.1f}")
+            ws.cell(row=2, column=7, value=f"{result.mean_range:.1f}")
+            ws.cell(row=2, column=8, value=f"{result.worst_sigma:.1f}")
+            ws.cell(row=2, column=9, value=f"{result.worst_range:.1f}")
 
             # 축별 결과
             ws2 = wb.create_sheet("Axis Results")
@@ -1104,8 +1104,8 @@ class ExcelExporter:
             for row_idx, axis_result in enumerate(axis_results, 2):
                 ws2.cell(row=row_idx, column=1, value=axis_result.axis)
                 ws2.cell(row=row_idx, column=2, value=axis_result.direction)
-                ws2.cell(row=row_idx, column=3, value=f"{axis_result.sigma:.6f}")
-                ws2.cell(row=row_idx, column=4, value=f"{axis_result.range_val:.6f}")
+                ws2.cell(row=row_idx, column=3, value=f"{axis_result.sigma:.1f}")
+                ws2.cell(row=row_idx, column=4, value=f"{axis_result.range_val:.1f}")
                 ws2.cell(row=row_idx, column=5, value=axis_result.result)
                 ws2.cell(row=row_idx, column=6, value=axis_result.ncycles)
 
@@ -1575,6 +1575,11 @@ class MiniasApp:
         )
         self.btn_pause.pack(side=tk.LEFT, padx=5)
 
+        self.btn_stop = ttk.Button(
+            btn_frame, text="STOP", command=self._on_stop, width=12
+        )
+        self.btn_stop.pack(side=tk.LEFT, padx=5)
+
         self.btn_print = ttk.Button(
             btn_frame, text="Save PDF", command=self._on_print_certificate
         )
@@ -1948,7 +1953,7 @@ class MiniasApp:
                     0,
                     lambda a=axis, c=cycle, v=value, r=cur_range, s=cur_sigma: (
                         self.var_status.set(
-                            f"Axis {a}, Cycle {c}/{ncycles} - Value: {v:.6f}"
+                            f"Axis {a}, Cycle {c}/{ncycles} - Value: {v:.1f}"
                         ),
                         self._update_grid_row_live(a, c, ncycles, v, r, s),
                     ),
@@ -1990,7 +1995,7 @@ class MiniasApp:
                     result = messagebox.askyesno(
                         "NG - Re-measure",
                         f"Axis {a} result is NG!\n"
-                        f"Range: {range_val:.6f}, 2Sigma: {2.0 * sigma:.6f}\n\n"
+                        f"Range: {range_val:.1f}, 2Sigma: {2.0 * sigma:.1f}\n\n"
                         f"Re-measure this axis?",
                     )
                     self._axis_action_retry = result
@@ -2075,8 +2080,8 @@ class MiniasApp:
                 item,
                 values=(
                     str(axis),
-                    f"{cur_range:.6f}",
-                    f"{two_sigma:.6f}",
+                    f"{cur_range:.1f}",
+                    f"{two_sigma:.1f}",
                     f"{cycle}/{ncycles}",
                     "",
                     "",
@@ -2094,8 +2099,8 @@ class MiniasApp:
                 item,
                 values=(
                     str(axis),
-                    f"{range_val:.6f}",
-                    f"{two_sigma:.6f}",
+                    f"{range_val:.1f}",
+                    f"{two_sigma:.1f}",
                     result,
                     "",
                     "",
@@ -2137,8 +2142,8 @@ class MiniasApp:
                 children[4],
                 values=(
                     "Mean",
-                    f"{mean_range:.6f}",
-                    f"{2.0 * mean_sigma:.6f}",
+                    f"{mean_range:.1f}",
+                    f"{2.0 * mean_sigma:.1f}",
                     "",
                     "",
                     "",
@@ -2150,8 +2155,8 @@ class MiniasApp:
                 children[5],
                 values=(
                     "Worst",
-                    f"{worst_range:.6f}",
-                    f"{2.0 * worst_sigma:.6f}",
+                    f"{worst_range:.1f}",
+                    f"{2.0 * worst_sigma:.1f}",
                     overall_result,
                     "",
                     "",
@@ -2213,8 +2218,122 @@ class MiniasApp:
             self.btn_pause.config(text="PAUSE")
             self.var_status.set(f"Testing... Axis {self.current_axis}")
 
+    def _on_stop(self):
+        """테스트 중단 — 현재까지의 결과를 저장하고 테스트 종료"""
+        if not self.is_testing:
+            return
+
+        confirm = messagebox.askyesno(
+            "Stop Test",
+            "Stop the current test?\nResults measured so far will be saved.",
+        )
+        if not confirm:
+            return
+
+        # 테스트 중단
+        self.is_testing = False
+        self.is_paused = False
+
+        # 현재까지 완료된 축의 결과 계산
+        # (measurements에 데이터가 있는 축만 결과 생성)
+        for axis, values in self.measurements.items():
+            if not values:
+                continue
+
+            # 이미 axis_results에 있는 축은 건너뜀
+            if any(ar.axis == axis for ar in self.axis_results):
+                continue
+
+            sigma = self.calculator.calculate_sigma(values)
+            range_val = self.calculator.calculate_range(values)
+
+            axis_result_str = "OK"
+            if self.limits:
+                axis_result_str = self.calculator.evaluate_axis_result(
+                    sigma,
+                    range_val,
+                    self.limits,
+                    self.var_check_sigma.get(),
+                    self.var_check_range.get(),
+                )
+
+            ar = AxisResult(
+                axis=axis,
+                sigma=sigma,
+                range_val=range_val,
+                result=axis_result_str,
+                ncycles=len(values),
+                direction=str(axis),
+            )
+            self.axis_results.append(ar)
+
+        # 결과가 있으면 저장
+        if self.axis_results:
+            self._complete_test()
+            self.var_status.set("Test STOPPED - Results saved")
+        else:
+            self.var_status.set("Test STOPPED - No results to save")
+
+        self.btn_start.config(state="normal")
+        self.btn_pause.config(text="PAUSE")
+        self.serial.disconnect()
+
+    def _stop_and_save_current(self):
+        """Pause 상태에서 SavePDF 시 호출 — 현재까지 데이터를 저장"""
+        # 테스트 중단
+        self.is_testing = False
+        self.is_paused = False
+
+        # 현재까지 완료된 축 결과 계산
+        for axis, values in self.measurements.items():
+            if not values:
+                continue
+            if any(ar.axis == axis for ar in self.axis_results):
+                continue
+
+            sigma = self.calculator.calculate_sigma(values)
+            range_val = self.calculator.calculate_range(values)
+
+            axis_result_str = "OK"
+            if self.limits:
+                axis_result_str = self.calculator.evaluate_axis_result(
+                    sigma,
+                    range_val,
+                    self.limits,
+                    self.var_check_sigma.get(),
+                    self.var_check_range.get(),
+                )
+
+            ar = AxisResult(
+                axis=axis,
+                sigma=sigma,
+                range_val=range_val,
+                result=axis_result_str,
+                ncycles=len(values),
+                direction=str(axis),
+            )
+            self.axis_results.append(ar)
+
+        if self.axis_results:
+            self._complete_test()
+
+        self.btn_start.config(state="normal")
+        self.btn_pause.config(text="PAUSE")
+        self.serial.disconnect()
+
     def _on_print_certificate(self):
-        """인증서 출력"""
+        """인증서 출력 — 테스트 완료 또는 Pause/Stop 상태에서 사용 가능"""
+        # Pause 상태에서 호출된 경우: 현재까지 결과를 먼저 저장
+        if self.is_testing and self.is_paused and self.current_id == 0:
+            save_now = messagebox.askyesno(
+                "Save Current Results",
+                "Test is paused. Save current results and generate PDF?",
+            )
+            if not save_now:
+                return
+            # 현재까지 데이터로 결과 저장
+            self._stop_and_save_current()
+
         if self.current_id == 0:
             messagebox.showwarning("Warning", "No test result to print")
             return
@@ -2434,8 +2553,8 @@ class MiniasApp:
                     item,
                     values=(
                         str(axis_num),
-                        f"{ar.range_val:.6f}",
-                        f"{two_sigma:.6f}",
+                        f"{ar.range_val:.1f}",
+                        f"{two_sigma:.1f}",
                         ar.result,
                         "",
                         "",
@@ -2449,8 +2568,8 @@ class MiniasApp:
                 children[4],
                 values=(
                     "Mean",
-                    f"{result.mean_range:.6f}",
-                    f"{2.0 * result.mean_sigma:.6f}",
+                    f"{result.mean_range:.1f}",
+                    f"{2.0 * result.mean_sigma:.1f}",
                     "",
                     "",
                     "",
@@ -2461,8 +2580,8 @@ class MiniasApp:
                 children[5],
                 values=(
                     "Worst",
-                    f"{result.worst_range:.6f}",
-                    f"{2.0 * result.worst_sigma:.6f}",
+                    f"{result.worst_range:.1f}",
+                    f"{2.0 * result.worst_sigma:.1f}",
                     result.result,
                     "",
                     "",
@@ -2680,9 +2799,9 @@ class LimitsDialog:
         self.dialog.grab_set()
 
         # 변수
-        self.var_mean_sigma = tk.StringVar(value=f"{self.limits.mean_sigma:.6f}")
-        self.var_mean_range = tk.StringVar(value=f"{self.limits.mean_range:.6f}")
-        self.var_worst_range = tk.StringVar(value=f"{self.limits.worst_range:.6f}")
+        self.var_mean_sigma = tk.StringVar(value=f"{self.limits.mean_sigma:.1f}")
+        self.var_mean_range = tk.StringVar(value=f"{self.limits.mean_range:.1f}")
+        self.var_worst_range = tk.StringVar(value=f"{self.limits.worst_range:.1f}")
 
         # GUI
         frame = ttk.Frame(self.dialog, padding="10")
