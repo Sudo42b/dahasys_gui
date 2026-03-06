@@ -1102,10 +1102,10 @@ class ExcelExporter:
             ws.cell(row=2, column=3, value=result.serial_number)
             ws.cell(row=2, column=4, value=result.operator)
             ws.cell(row=2, column=5, value=result.result)
-            ws.cell(row=2, column=6, value=f"{result.mean_sigma:.1f}")
-            ws.cell(row=2, column=7, value=f"{result.mean_range:.1f}")
-            ws.cell(row=2, column=8, value=f"{result.worst_sigma:.1f}")
-            ws.cell(row=2, column=9, value=f"{result.worst_range:.1f}")
+            ws.cell(row=2, column=6, value=f"{result.mean_sigma:.3f}")
+            ws.cell(row=2, column=7, value=f"{result.mean_range:.3f}")
+            ws.cell(row=2, column=8, value=f"{result.worst_sigma:.3f}")
+            ws.cell(row=2, column=9, value=f"{result.worst_range:.3f}")
 
             # 축별 결과
             ws2 = wb.create_sheet("Axis Results")
@@ -1116,8 +1116,8 @@ class ExcelExporter:
             for row_idx, axis_result in enumerate(axis_results, 2):
                 ws2.cell(row=row_idx, column=1, value=axis_result.axis)
                 ws2.cell(row=row_idx, column=2, value=axis_result.direction)
-                ws2.cell(row=row_idx, column=3, value=f"{axis_result.sigma:.1f}")
-                ws2.cell(row=row_idx, column=4, value=f"{axis_result.range_val:.1f}")
+                ws2.cell(row=row_idx, column=3, value=f"{axis_result.sigma:.3f}")
+                ws2.cell(row=row_idx, column=4, value=f"{axis_result.range_val:.3f}")
                 ws2.cell(row=row_idx, column=5, value=axis_result.result)
                 ws2.cell(row=row_idx, column=6, value=axis_result.ncycles)
 
@@ -1297,14 +1297,14 @@ class CertificateGenerator:
             axis_2sigmas = []
             for i in range(4):
                 if i < len(axis_results):
-                    axis_ranges.append(f"{axis_results[i].range_val:.1f}")
-                    axis_2sigmas.append(f"{2.0 * axis_results[i].sigma:.1f}")
+                    axis_ranges.append(f"{axis_results[i].range_val:.3f}")
+                    axis_2sigmas.append(f"{2.0 * axis_results[i].sigma:.3f}")
                 else:
                     axis_ranges.append("-")
                     axis_2sigmas.append("-")
 
-            mean_range_val = f"{result.mean_range:.1f}"
-            mean_2sigma_val = f"{2.0 * result.mean_sigma:.1f}"
+            mean_range_val = f"{result.mean_range:.3f}"
+            mean_2sigma_val = f"{2.0 * result.mean_sigma:.3f}"
 
             # 5열 테이블 (축 레이블 + 값) — A5 축소
             col_w = 21 * mm
@@ -1316,12 +1316,12 @@ class CertificateGenerator:
                 dir_header.append(dl)
 
             # Range row
-            range_row = [f"Range\n(Limit: {result.worst_range_limit:.1f})"]
+            range_row = [f"Range\n(Limit: {result.worst_range_limit:.3f})"]
             for ar in axis_ranges:
                 range_row.append(ar)
 
             # 2Sigma row
-            sigma_row = [f"2Sigma\n(Limit: {result.mean_sigma_limit:.1f})"]
+            sigma_row = [f"2Sigma\n(Limit: {result.mean_sigma_limit:.3f})"]
             for s2 in axis_2sigmas:
                 sigma_row.append(s2)
 
@@ -1373,8 +1373,8 @@ class CertificateGenerator:
                 result_data.append(
                     [
                         f"Axis {ar.axis}",
-                        f"{ar.range_val:.1f}",
-                        f"{2.0 * ar.sigma:.1f}",
+                        f"{ar.range_val:.3f}",
+                        f"{2.0 * ar.sigma:.3f}",
                         ar.result,
                     ]
                 )
@@ -1382,8 +1382,8 @@ class CertificateGenerator:
             result_data.append(
                 [
                     "Overall",
-                    f"{result.mean_range:.1f}",
-                    f"{2.0 * result.mean_sigma:.1f}",
+                    f"{result.mean_range:.3f}",
+                    f"{2.0 * result.mean_sigma:.3f}",
                     result.result,
                 ]
             )
@@ -1958,7 +1958,7 @@ class MiniasApp:
                     0,
                     lambda a=axis, c=cycle, v=value, r=cur_range, s=cur_sigma: (
                         self.var_status.set(
-                            f"Axis {a}, Cycle {c}/{ncycles} - Value: {v:.1f}"
+                            f"Axis {a}, Cycle {c}/{ncycles} - Value: {v:.3f}"
                         ),
                         self._update_grid_row_live(a, c, ncycles, v, r, s),
                     ),
@@ -2000,7 +2000,7 @@ class MiniasApp:
                     result = messagebox.askyesno(
                         "NG - Re-measure",
                         f"Axis {a} result is NG!\n"
-                        f"Range: {range_val:.1f}, 2Sigma: {2.0 * sigma:.1f}\n\n"
+                        f"Range: {range_val:.3f}, 2Sigma: {2.0 * sigma:.3f}\n\n"
                         f"Re-measure this axis?",
                     )
                     self._axis_action_retry = result
@@ -2085,8 +2085,8 @@ class MiniasApp:
                 item,
                 values=(
                     str(axis),
-                    f"{cur_range:.1f}",
-                    f"{two_sigma:.1f}",
+                    f"{cur_range:.3f}",
+                    f"{two_sigma:.3f}",
                     f"{cycle}/{ncycles}",
                     "",
                     "",
@@ -2104,8 +2104,8 @@ class MiniasApp:
                 item,
                 values=(
                     str(axis),
-                    f"{range_val:.1f}",
-                    f"{two_sigma:.1f}",
+                    f"{range_val:.3f}",
+                    f"{two_sigma:.3f}",
                     result,
                     "",
                     "",
@@ -2147,8 +2147,8 @@ class MiniasApp:
                 children[4],
                 values=(
                     "Mean",
-                    f"{mean_range:.1f}",
-                    f"{2.0 * mean_sigma:.1f}",
+                    f"{mean_range:.3f}",
+                    f"{2.0 * mean_sigma:.3f}",
                     "",
                     "",
                     "",
@@ -2160,8 +2160,8 @@ class MiniasApp:
                 children[5],
                 values=(
                     "Worst",
-                    f"{worst_range:.1f}",
-                    f"{2.0 * worst_sigma:.1f}",
+                    f"{worst_range:.3f}",
+                    f"{2.0 * worst_sigma:.3f}",
                     overall_result,
                     "",
                     "",
@@ -2558,8 +2558,8 @@ class MiniasApp:
                     item,
                     values=(
                         str(axis_num),
-                        f"{ar.range_val:.1f}",
-                        f"{two_sigma:.1f}",
+                        f"{ar.range_val:.3f}",
+                        f"{two_sigma:.3f}",
                         ar.result,
                         "",
                         "",
@@ -2573,8 +2573,8 @@ class MiniasApp:
                 children[4],
                 values=(
                     "Mean",
-                    f"{result.mean_range:.1f}",
-                    f"{2.0 * result.mean_sigma:.1f}",
+                    f"{result.mean_range:.3f}",
+                    f"{2.0 * result.mean_sigma:.3f}",
                     "",
                     "",
                     "",
@@ -2585,8 +2585,8 @@ class MiniasApp:
                 children[5],
                 values=(
                     "Worst",
-                    f"{result.worst_range:.1f}",
-                    f"{2.0 * result.worst_sigma:.1f}",
+                    f"{result.worst_range:.3f}",
+                    f"{2.0 * result.worst_sigma:.3f}",
                     result.result,
                     "",
                     "",
@@ -2804,9 +2804,9 @@ class LimitsDialog:
         self.dialog.grab_set()
 
         # 변수
-        self.var_mean_sigma = tk.StringVar(value=f"{self.limits.mean_sigma:.1f}")
-        self.var_mean_range = tk.StringVar(value=f"{self.limits.mean_range:.1f}")
-        self.var_worst_range = tk.StringVar(value=f"{self.limits.worst_range:.1f}")
+        self.var_mean_sigma = tk.StringVar(value=f"{self.limits.mean_sigma:.3f}")
+        self.var_mean_range = tk.StringVar(value=f"{self.limits.mean_range:.3f}")
+        self.var_worst_range = tk.StringVar(value=f"{self.limits.worst_range:.3f}")
 
         # GUI
         frame = ttk.Frame(self.dialog, padding="10")
