@@ -904,17 +904,19 @@ class SerialCommunicator:
                 _time.sleep(0.05)
 
     def read_value(self, timeout: float = 30.0) -> Optional[float]:
-        """측정값 읽기 — 큐에서 유효한 숫자값 1개를 꺼냄
+        """측정값 읽기 — 큐가 비어있을 때까지 대기 후 첫 데이터 수신 시 반환
 
-        _read_loop가 이미 NULL/빈줄을 필터링하므로,
-        큐에는 유효한 숫자 문자열만 들어옴.
-        1터치 = 큐에 1개 항목 = 1사이클.
+        센서가 1터치에 여러 라인을 보낼 수 있으므로,
+        첫 유효값 수신 후 짧은 대기(0.15초)로 후속 데이터를 모두 소비(drain)하고
+        마지막 유효값을 반환한다. 이렇게 하면 1터치 = 1사이클이 보장됨.
         """
         import re
         import time as _time
 
         deadline = _time.monotonic() + timeout
 
+        # Phase 1: 첫 유효값이 올 때까지 대기
+        first_value = None
         while _time.monotonic() < deadline:
             remaining = deadline - _time.monotonic()
             if remaining <= 0:
@@ -925,34 +927,65 @@ class SerialCommunicator:
             except queue.Empty:
                 continue
 
-            # 공백/탭 정리, 콤마→점 변환
-            cleaned = data.strip().replace(",", ".")
+            parsed = self._parse_serial_value(data)
+            if parsed is not None:
+                first_value = parsed
+                break
 
-            # 빈 문자열 → 건너뜀
-            if not cleaned:
-                continue
+        if first_value is None:
+            return None
 
-            # 숫자 외 문자 제거 (부호, 소수점, 숫자만 남김)
-            numeric = re.sub(r"[^0-9\.\-\+eE]", "", cleaned)
-            if not numeric:
-                self._serial_log(f"[Serial] Non-numeric skipped: {data!r}")
-                continue
-
+        # Phase 2: 짧은 대기 후 큐에 남은 후속 데이터 모두 drain
+        # 센서가 1터치에 여러 라인을 보내는 경우 대비
+        _time.sleep(0.15)
+        last_value = first_value
+        drained = 0
+        while True:
             try:
-                value = float(numeric)
-            except ValueError:
-                self._serial_log(f"[Serial] Parse error skipped: {data!r}")
-                continue
+                data = self.data_queue.get_nowait()
+            except queue.Empty:
+                break
+            parsed = self._parse_serial_value(data)
+            if parsed is not None:
+                last_value = parsed
+                drained += 1
 
-            # 유효성 검증: 비정상적으로 큰 값 필터
-            if abs(value) > 99999:
-                self._serial_log(f"[Serial] Out of range skipped: {value}")
-                continue
+        if drained > 0:
+            self._serial_log(
+                f"[Serial] Drained {drained} extra values (1-touch multi-line)"
+            )
 
-            self._serial_log(f"[Serial] Valid value: {value}")
-            return value
+        self._serial_log(f"[Serial] Valid value: {last_value}")
+        return last_value
 
-        return None
+    def _parse_serial_value(self, data: str) -> Optional[float]:
+        """시리얼 데이터 문자열을 float로 파싱. 유효하지 않으면 None 반환."""
+        import re
+
+        # 공백/탭 정리, 콤마→점 변환
+        cleaned = data.strip().replace(",", ".")
+
+        if not cleaned:
+            return None
+
+        # 숫자 외 문자 제거 (부호, 소수점, 숫자만 남김)
+        numeric = re.sub(r"[^0-9\.\-\+eE]", "", cleaned)
+        if not numeric:
+            self._serial_log(f"[Serial] Non-numeric skipped: {data!r}")
+            return None
+
+        try:
+            value = float(numeric)
+        except ValueError:
+            self._serial_log(f"[Serial] Parse error skipped: {data!r}")
+            return None
+
+        # 유효성 검증: 비정상적으로 큰 값 필터
+        if abs(value) > 99999:
+            self._serial_log(f"[Serial] Out of range skipped: {value}")
+            return None
+
+        return value
 
     def send_command(self, cmd: str):
         """명령 전송"""
