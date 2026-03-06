@@ -836,71 +836,79 @@ class SerialCommunicator:
             self.serial.close()
         self.is_connected = False
 
+    def _serial_log(self, msg: str):
+        """시리얼 디버그 로그를 파일과 콘솔에 동시 출력 (flush 보장)"""
+        import sys
+
+        print(msg, flush=True)
+        try:
+            with open("serial_debug.log", "a", encoding="utf-8") as f:
+                f.write(f"{msg}\n")
+        except Exception:
+            pass
+
     def _read_loop(self):
-        """백그라운드 읽기 루프
-        - 바이트 단위로 읽어서 CR/LF/CRLF 구분자로 라인 분리
-        - 터치센서에서 매 터치마다 1줄의 데이터가 오므로
-          readline() 대신 직접 바이트를 모아서 처리
+        """백그라운드 읽기 루프 — CR(\r) 종단 프로토콜 대응
+
+        터치센서 데이터 형식 (실측 확인됨):
+          1터치 = [0x00] + [숫자값\r]
+          예: b'\x00' 이후 b'911\r'
+
+        전략:
+        - 바이트 단위로 읽어서 CR(\r)이 오면 라인 완성
+        - NULL(0x00) 바이트는 무시
+        - 유효한 숫자 라인만 큐에 넣음
         """
-        buffer = b""
+        import time as _time
+
+        self._serial_log("[Serial] _read_loop started (CR-terminated protocol)")
+
+        buf = bytearray()
+
         while self.running and self.serial and self.serial.is_open:
             try:
-                if self.serial.in_waiting > 0:
-                    chunk = self.serial.read(self.serial.in_waiting)
-                    buffer += chunk
+                # 1바이트씩 읽기 (timeout=1초, serial 생성 시 설정됨)
+                b = self.serial.read(1)
 
-                    # 디버그: 수신 원시 데이터 출력
-                    print(f"[Serial RAW] received {len(chunk)} bytes: {chunk!r}")
+                if not b:
+                    # timeout — 데이터 없음
+                    continue
 
-                    # CR(\r), LF(\n), CRLF(\r\n) 중 하나로 라인 분리
-                    while b"\r" in buffer or b"\n" in buffer:
-                        # CRLF, CR, LF 순서로 구분자 찾기
-                        idx_cr = buffer.find(b"\r")
-                        idx_lf = buffer.find(b"\n")
+                byte_val = b[0]
 
-                        if idx_cr >= 0 and idx_lf == idx_cr + 1:
-                            # CRLF
-                            line = (
-                                buffer[:idx_cr].decode("ascii", errors="ignore").strip()
-                            )
-                            buffer = buffer[idx_lf + 1 :]
-                        elif idx_lf >= 0 and (idx_cr < 0 or idx_lf < idx_cr):
-                            # LF first
-                            line = (
-                                buffer[:idx_lf].decode("ascii", errors="ignore").strip()
-                            )
-                            buffer = buffer[idx_lf + 1 :]
-                        elif idx_cr >= 0:
-                            # CR only (check if next byte is LF not yet received)
-                            if idx_cr == len(buffer) - 1:
-                                # CR at end - wait for possible LF
-                                break
-                            line = (
-                                buffer[:idx_cr].decode("ascii", errors="ignore").strip()
-                            )
-                            buffer = buffer[idx_cr + 1 :]
-                        else:
-                            break
+                # NULL(0x00) 바이트 → 무시 (센서가 터치 시작 시 보내는 신호)
+                if byte_val == 0x00:
+                    self._serial_log("[Serial] NULL byte (0x00) skipped")
+                    continue
 
-                        if line:
-                            self.data_queue.put(line)
-                else:
-                    import time
+                # CR(\r) → 라인 완성
+                if byte_val == 0x0D:  # \r
+                    line = buf.decode("ascii", errors="ignore").strip()
+                    buf.clear()
 
-                    time.sleep(0.01)  # CPU 사용률 감소
+                    self._serial_log(f"[Serial LINE] '{line}' (len={len(line)})")
+
+                    if line:
+                        self.data_queue.put(line)
+                    continue
+
+                # LF(\n) → 무시 (CR 뒤에 오는 경우 대비)
+                if byte_val == 0x0A:  # \n
+                    continue
+
+                # 일반 바이트 → 버퍼에 추가
+                buf.append(byte_val)
+
             except Exception as e:
-                print(f"Serial read error: {e}")
-                import time
+                self._serial_log(f"[Serial ERROR] {e}")
+                _time.sleep(0.05)
 
-                time.sleep(0.05)
+    def read_value(self, timeout: float = 30.0) -> Optional[float]:
+        """측정값 읽기 — 큐에서 유효한 숫자값 1개를 꺼냄
 
-    def read_value(self, timeout: float = 1.0) -> Optional[float]:
-        """측정값 읽기 — 유효한 숫자값이 나올 때까지 큐를 소비
-
-        터치센서는 1터치 시 여러 줄을 보낼 수 있음 (빈줄, 헤더, 데이터 등).
-        이 함수는 timeout 내에서 유효한 숫자 1개를 찾으면 즉시 반환하고,
-        나머지 빈줄/쓰레기 데이터는 내부에서 건너뜀.
-        이렇게 해야 1터치 = 1사이클이 보장됨.
+        _read_loop가 이미 NULL/빈줄을 필터링하므로,
+        큐에는 유효한 숫자 문자열만 들어옴.
+        1터치 = 큐에 1개 항목 = 1사이클.
         """
         import re
         import time as _time
@@ -913,7 +921,7 @@ class SerialCommunicator:
                 return None
 
             try:
-                data = self.data_queue.get(timeout=min(remaining, 0.1))
+                data = self.data_queue.get(timeout=min(remaining, 0.5))
             except queue.Empty:
                 continue
 
@@ -927,58 +935,24 @@ class SerialCommunicator:
             # 숫자 외 문자 제거 (부호, 소수점, 숫자만 남김)
             numeric = re.sub(r"[^0-9\.\-\+eE]", "", cleaned)
             if not numeric:
-                print(f"[Serial] Non-numeric data skipped: {data!r}")
+                self._serial_log(f"[Serial] Non-numeric skipped: {data!r}")
                 continue
 
             try:
                 value = float(numeric)
             except ValueError:
-                print(f"[Serial] Parse error skipped: {data!r}")
+                self._serial_log(f"[Serial] Parse error skipped: {data!r}")
                 continue
 
             # 유효성 검증: 비정상적으로 큰 값 필터
             if abs(value) > 99999:
-                print(f"[Serial] Value out of range, skipped: {value}")
+                self._serial_log(f"[Serial] Out of range skipped: {value}")
                 continue
 
-            # 유효 값 찾음 — 이 터치에서 남은 후속 데이터(빈줄 등) 모두 소비
-            self._drain_trailing_data()
-
+            self._serial_log(f"[Serial] Valid value: {value}")
             return value
 
         return None
-
-    def _drain_trailing_data(self):
-        """터치 1회의 후속 빈줄/쓰레기 데이터를 큐에서 모두 제거.
-        유효한 숫자 데이터가 오면 멈추고 다시 큐에 넣음 (다음 터치 데이터일 수 있으므로).
-        짧은 시간(50ms)만 대기하여 다음 터치 데이터를 가져가지 않도록 함.
-        """
-        import re
-        import time as _time
-
-        deadline = _time.monotonic() + 0.05  # 50ms 이내의 후속 데이터만 제거
-
-        while _time.monotonic() < deadline:
-            try:
-                data = self.data_queue.get_nowait()
-            except queue.Empty:
-                break
-
-            cleaned = data.strip().replace(",", ".")
-            if not cleaned:
-                # 빈줄 → 버림
-                continue
-
-            # 숫자 데이터가 다시 온 경우 → 다음 터치일 수 있으므로 다시 넣음
-            numeric = re.sub(r"[^0-9\.\-\+eE]", "", cleaned)
-            if numeric:
-                try:
-                    float(numeric)
-                    # 유효 숫자 → 다시 큐에 넣고 종료
-                    self.data_queue.put(data)
-                    break
-                except ValueError:
-                    pass
 
     def send_command(self, cmd: str):
         """명령 전송"""
@@ -1938,8 +1912,8 @@ class MiniasApp:
                 )
 
                 # 측정값 읽기 - 1터치 = 1사이클
-                # read_value는 내부에서 빈줄을 건너뛰고 유효 숫자만 반환
-                # None이면 timeout → 터치가 아직 안 온 것이므로 재시도
+                # _read_loop가 NULL/빈줄 필터링 후 유효 데이터만 큐에 넣음
+                # read_value는 큐에서 숫자 1개를 꺼냄
                 value = None
                 if self.serial.is_connected:
                     while value is None and self.is_testing:
@@ -1947,7 +1921,7 @@ class MiniasApp:
                             time.sleep(0.1)
                             if not self.is_testing:
                                 return
-                        value = self.serial.read_value(timeout=1.0)
+                        value = self.serial.read_value(timeout=5.0)
                 else:
                     # 시뮬레이션 모드
                     import random
