@@ -931,7 +931,11 @@ class SerialCommunicator:
         return None
 
     def _parse_serial_value(self, data: str) -> Optional[float]:
-        """시리얼 데이터 문자열을 float로 파싱. 유효하지 않으면 None 반환."""
+        """시리얼 데이터 문자열을 float로 파싱. 유효하지 않으면 None 반환.
+
+        센서는 정수값(예: 911)을 보내며, 이를 ÷1000 하여
+        실제 측정값(예: 0.911)으로 변환한다.
+        """
         import re
 
         # 공백/탭 정리, 콤마→점 변환
@@ -947,16 +951,19 @@ class SerialCommunicator:
             return None
 
         try:
-            value = float(numeric)
+            raw_value = float(numeric)
         except ValueError:
             self._serial_log(f"[Serial] Parse error skipped: {data!r}")
             return None
 
         # 유효성 검증: 비정상적으로 큰 값 필터
-        if abs(value) > 99999:
-            self._serial_log(f"[Serial] Out of range skipped: {value}")
+        if abs(raw_value) > 99999:
+            self._serial_log(f"[Serial] Out of range skipped: {raw_value}")
             return None
 
+        # 센서 원시값 → 실제 측정값 변환 (÷1000)
+        value = raw_value / 1000.0
+        self._serial_log(f"[Serial] Raw={raw_value} -> Converted={value:.3f}")
         return value
 
     def send_command(self, cmd: str):
