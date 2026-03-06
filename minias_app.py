@@ -904,19 +904,15 @@ class SerialCommunicator:
                 _time.sleep(0.05)
 
     def read_value(self, timeout: float = 30.0) -> Optional[float]:
-        """측정값 읽기 — 큐가 비어있을 때까지 대기 후 첫 데이터 수신 시 반환
+        """측정값 읽기 — 큐에서 유효한 숫자값 1개를 즉시 꺼냄
 
-        센서가 1터치에 여러 라인을 보낼 수 있으므로,
-        첫 유효값 수신 후 짧은 대기(0.15초)로 후속 데이터를 모두 소비(drain)하고
-        마지막 유효값을 반환한다. 이렇게 하면 1터치 = 1사이클이 보장됨.
+        딜레이 없이 큐에 데이터가 들어오는 즉시 반환.
+        1터치 = 큐에 1개 항목 = 1사이클.
         """
-        import re
         import time as _time
 
         deadline = _time.monotonic() + timeout
 
-        # Phase 1: 첫 유효값이 올 때까지 대기
-        first_value = None
         while _time.monotonic() < deadline:
             remaining = deadline - _time.monotonic()
             if remaining <= 0:
@@ -929,34 +925,10 @@ class SerialCommunicator:
 
             parsed = self._parse_serial_value(data)
             if parsed is not None:
-                first_value = parsed
-                break
+                self._serial_log(f"[Serial] Valid value: {parsed}")
+                return parsed
 
-        if first_value is None:
-            return None
-
-        # Phase 2: 짧은 대기 후 큐에 남은 후속 데이터 모두 drain
-        # 센서가 1터치에 여러 라인을 보내는 경우 대비
-        _time.sleep(0.15)
-        last_value = first_value
-        drained = 0
-        while True:
-            try:
-                data = self.data_queue.get_nowait()
-            except queue.Empty:
-                break
-            parsed = self._parse_serial_value(data)
-            if parsed is not None:
-                last_value = parsed
-                drained += 1
-
-        if drained > 0:
-            self._serial_log(
-                f"[Serial] Drained {drained} extra values (1-touch multi-line)"
-            )
-
-        self._serial_log(f"[Serial] Valid value: {last_value}")
-        return last_value
+        return None
 
     def _parse_serial_value(self, data: str) -> Optional[float]:
         """시리얼 데이터 문자열을 float로 파싱. 유효하지 않으면 None 반환."""
@@ -1951,21 +1923,14 @@ class MiniasApp:
 
                 # 측정값 읽기 - 1터치 = 1사이클
                 # _read_loop가 NULL/빈줄 필터링 후 유효 데이터만 큐에 넣음
-                # read_value는 큐에서 숫자 1개를 꺼냄
+                # read_value는 큐에서 숫자 1개를 즉시 꺼냄 (딜레이 없음)
                 value = None
-                if self.serial.is_connected:
-                    while value is None and self.is_testing:
-                        while self.is_paused:
-                            time.sleep(0.1)
-                            if not self.is_testing:
-                                return
-                        value = self.serial.read_value(timeout=5.0)
-                else:
-                    # 시뮬레이션 모드
-                    import random
-
-                    time.sleep(0.05)
-                    value = random.gauss(0, 0.001)
+                while value is None and self.is_testing:
+                    while self.is_paused:
+                        time.sleep(0.1)
+                        if not self.is_testing:
+                            return
+                    value = self.serial.read_value(timeout=5.0)
 
                 if not self.is_testing:
                     return
