@@ -20,6 +20,7 @@ try:
     import serial
     import serial.tools.list_ports
 
+
     SERIAL_AVAILABLE = True
 except ImportError:
     SERIAL_AVAILABLE = False
@@ -170,16 +171,16 @@ class MiniasDatabase:
         """)
 
         # CODES 테이블
-        cursor.execute("""
+        cursor.execute('''
             CREATE TABLE IF NOT EXISTS CODES (
                 CODE VARCHAR(11) PRIMARY KEY,
                 NAXIS INT DEFAULT 4,
                 PROBE_TYPE VARCHAR(30),
-                X_PLUS_DIR SMALLINT DEFAULT 1,
-                X_MINUS_DIR SMALLINT DEFAULT 1,
-                Y_PLUS_DIR SMALLINT DEFAULT 1,
-                Y_MINUS_DIR SMALLINT DEFAULT 1,
-                Z_MINUS_DIR SMALLINT DEFAULT 1
+                XPLUS_DIR SMALLINT DEFAULT 1,
+                XMINUS_DIR SMALLINT DEFAULT 1,
+                YPLUS_DIR SMALLINT DEFAULT 1,
+                YMINUS_DIR SMALLINT DEFAULT 1,
+                ZMINUS_DIR SMALLINT DEFAULT 1
             )
         """)
 
@@ -324,9 +325,7 @@ class MiniasDatabase:
     def add_operator(self, operator: str):
         """작업자 추가"""
         cursor = self.conn.cursor()
-        cursor.execute(
-            "INSERT OR IGNORE INTO OPERATORS (OPERATOR) VALUES (?)", (operator,)
-        )
+        cursor.execute('INSERT OR IGNORE INTO OPERATORS (OPERATOR) VALUES (?)', (operator,))
         self.conn.commit()
 
     # --- CODES ---
@@ -353,18 +352,16 @@ class MiniasDatabase:
                     return val if val is not None else default
                 return default
 
-            results.append(
-                CodeInfo(
-                    code=safe_get("CODE", default=""),
-                    naxis=int(safe_get("NAXIS", default=4) or 4),
-                    probe_type=safe_get("PROBE_TYPE", default=""),
-                    x_plus_dir=int(safe_get("X_PLUS_DIR", "XPLUS_DIR", 1) or 1),
-                    x_minus_dir=int(safe_get("X_MINUS_DIR", "XMINUS_DIR", 1) or 1),
-                    y_plus_dir=int(safe_get("Y_PLUS_DIR", "YPLUS_DIR", 1) or 1),
-                    y_minus_dir=int(safe_get("Y_MINUS_DIR", "YMINUS_DIR", 1) or 1),
-                    z_minus_dir=int(safe_get("Z_MINUS_DIR", "ZMINUS_DIR", 1) or 1),
-                )
-            )
+            results.append(CodeInfo(
+                code=safe_get('CODE', default=''),
+                naxis=int(safe_get('NAXIS', default=4) or 4),
+                probe_type=safe_get('PROBE_TYPE', default=''),
+                x_plus_dir=int(safe_get('X_PLUS_DIR', 'XPLUS_DIR', 1) or 1),
+                x_minus_dir=int(safe_get('X_MINUS_DIR', 'XMINUS_DIR', 1) or 1),
+                y_plus_dir=int(safe_get('Y_PLUS_DIR', 'YPLUS_DIR', 1) or 1),
+                y_minus_dir=int(safe_get('Y_MINUS_DIR', 'YMINUS_DIR', 1) or 1),
+                z_minus_dir=int(safe_get('Z_MINUS_DIR', 'ZMINUS_DIR', 1) or 1)
+            ))
         return results
 
     def get_code_list(self) -> List[str]:
@@ -405,7 +402,7 @@ class MiniasDatabase:
         cursor.execute(
             """
             INSERT OR REPLACE INTO CODES
-            (CODE, NAXIS, PROBE_TYPE, X_PLUS_DIR, X_MINUS_DIR, Y_PLUS_DIR, Y_MINUS_DIR, Z_MINUS_DIR)
+            (CODE, NAXIS, PROBE_TYPE, XPLUS_DIR, XMINUS_DIR, YPLUS_DIR, YMINUS_DIR, ZMINUS_DIR)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
@@ -420,6 +417,35 @@ class MiniasDatabase:
             ),
         )
         self.conn.commit()
+
+    def delete_code(self, code: str):
+        """코드 삭제"""
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM CODES WHERE CODE = ?", (code,))
+        self.conn.commit()
+
+    def delete_test_result(self, id_col: int):
+        """테스트 결과 및 관련 데이터 삭제"""
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM TEST_SAMPLES WHERE ID_COL = ?", (id_col,))
+        cursor.execute("DELETE FROM TEST_AXIS_RESULTS WHERE ID_COL = ?", (id_col,))
+        cursor.execute("DELETE FROM TEST_RESULTS WHERE ID_COL = ?", (id_col,))
+        self.conn.commit()
+
+    def search_by_serial_number(self, serial_number: str) -> List[Tuple[int, str, str]]:
+        """시리얼 번호로 테스트 결과 검색"""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """
+            SELECT ID_COL, CODE, SERIAL_NUMBER FROM TEST_RESULTS
+            WHERE SERIAL_NUMBER LIKE ? ORDER BY ID_COL DESC
+        """,
+            (f"%{serial_number}%",),
+        )
+        return [
+            (row["ID_COL"], row["CODE"] or "", row["SERIAL_NUMBER"] or "")
+            for row in cursor.fetchall()
+        ]
 
     # --- SETUP ---
     def get_setup(self, test_type: str = "ST") -> Optional[SetupInfo]:
@@ -844,30 +870,76 @@ class SerialCommunicator:
             self.serial.close()
         self.is_connected = False
 
+    def _serial_log(self, msg: str):
+        """시리얼 디버그 로그를 파일과 콘솔에 동시 출력 (flush 보장)"""
+        import sys
+
+        print(msg, flush=True)
+        try:
+            with open("serial_debug.log", "a", encoding="utf-8") as f:
+                f.write(f"{msg}\n")
+        except Exception:
+            pass
+
     def _read_loop(self):
-        """백그라운드 읽기 루프"""
+        """백그라운드 읽기 루프 — CR(\r) 종단 프로토콜 대응
+
+        터치센서 데이터 형식 (실측 확인됨):
+          1터치 = [0x00] + [숫자값\r]
+          예: b'\x00' 이후 b'911\r'
+
+        전략:
+        - 바이트 단위로 읽어서 CR(\r)이 오면 라인 완성
+        - NULL(0x00) 바이트는 무시
+        - 유효한 숫자 라인만 큐에 넣음
+        """
+        import time as _time
+
+        self._serial_log("[Serial] _read_loop started (CR-terminated protocol)")
+
+        buf = bytearray()
+
         while self.running and self.serial and self.serial.is_open:
             try:
                 if self.serial.in_waiting > 0:
-                    line = (
-                        self.serial.readline().decode("ascii", errors="ignore").strip()
-                    )
+                    line = self.serial.readline().decode('ascii', errors='ignore').strip()
                     if line:
                         self.data_queue.put(line)
+                    continue
+
+                # LF(\n) → 무시 (CR 뒤에 오는 경우 대비)
+                if byte_val == 0x0A:  # \n
+                    continue
+
+                # 일반 바이트 → 버퍼에 추가
+                buf.append(byte_val)
+
             except Exception as e:
-                print(f"Serial read error: {e}")
+                self._serial_log(f"[Serial ERROR] {e}")
+                _time.sleep(0.05)
 
     def read_value(self, timeout: float = 1.0) -> Optional[float]:
         """측정값 읽기"""
         try:
             data = self.data_queue.get(timeout=timeout)
             # 숫자값 파싱 (장비 프로토콜에 따라 수정 필요)
-            value = float(data.replace(",", "."))
+            value = float(data.replace(',', '.'))
             return value
         except queue.Empty:
             return None
         except ValueError:
+            self._serial_log(f"[Serial] Parse error skipped: {data!r}")
             return None
+
+        # 유효성 검증: 비정상적으로 큰 값 필터
+        if abs(raw_value) > 99999:
+            self._serial_log(f"[Serial] Out of range skipped: {raw_value}")
+            return None
+
+        # 센서 원시값 → 실제 측정값 변환 (÷1000)
+        value = raw_value / 1000.0
+        self._serial_log(f"[Serial] Raw={raw_value} -> Converted={value:.3f}")
+        return value
 
     def send_command(self, cmd: str):
         """명령 전송"""
@@ -875,14 +947,25 @@ class SerialCommunicator:
             self.serial.write(cmd.encode("ascii"))
 
     def clear_buffer(self):
-        """버퍼 초기화"""
+        """버퍼 초기화 - 큐와 시리얼 입력 버퍼 모두 비움"""
+        # 큐 비우기
         while not self.data_queue.empty():
             try:
                 self.data_queue.get_nowait()
             except queue.Empty:
                 break
+        # 시리얼 입력 버퍼 비우기
         if self.serial and self.serial.is_open:
             self.serial.reset_input_buffer()
+        # 잠시 대기 후 다시 큐 비우기 (읽기 스레드가 방금 넣은 데이터 제거)
+        import time
+
+        time.sleep(0.1)
+        while not self.data_queue.empty():
+            try:
+                self.data_queue.get_nowait()
+            except queue.Empty:
+                break
 
 
 # =============================================================================
@@ -994,10 +1077,10 @@ class ExcelExporter:
             ws.cell(row=2, column=3, value=result.serial_number)
             ws.cell(row=2, column=4, value=result.operator)
             ws.cell(row=2, column=5, value=result.result)
-            ws.cell(row=2, column=6, value=f"{result.mean_sigma:.6f}")
-            ws.cell(row=2, column=7, value=f"{result.mean_range:.6f}")
-            ws.cell(row=2, column=8, value=f"{result.worst_sigma:.6f}")
-            ws.cell(row=2, column=9, value=f"{result.worst_range:.6f}")
+            ws.cell(row=2, column=6, value=f"{result.mean_sigma:.3f}")
+            ws.cell(row=2, column=7, value=f"{result.mean_range:.3f}")
+            ws.cell(row=2, column=8, value=f"{result.worst_sigma:.3f}")
+            ws.cell(row=2, column=9, value=f"{result.worst_range:.3f}")
 
             # 축별 결과
             ws2 = wb.create_sheet("Axis Results")
@@ -1008,8 +1091,8 @@ class ExcelExporter:
             for row_idx, axis_result in enumerate(axis_results, 2):
                 ws2.cell(row=row_idx, column=1, value=axis_result.axis)
                 ws2.cell(row=row_idx, column=2, value=axis_result.direction)
-                ws2.cell(row=row_idx, column=3, value=f"{axis_result.sigma:.6f}")
-                ws2.cell(row=row_idx, column=4, value=f"{axis_result.range_val:.6f}")
+                ws2.cell(row=row_idx, column=3, value=f"{axis_result.sigma:.3f}")
+                ws2.cell(row=row_idx, column=4, value=f"{axis_result.range_val:.3f}")
                 ws2.cell(row=row_idx, column=5, value=axis_result.result)
                 ws2.cell(row=row_idx, column=6, value=axis_result.ncycles)
 
@@ -1033,20 +1116,15 @@ class CertificateGenerator:
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
         self.logo_path = os.path.join(self.script_dir, "resources", "logo.png")
 
-    def generate(
-        self,
-        result: TestResult,
-        axis_results: List[AxisResult],
-        code_info: CodeInfo,
-        output_path: str,
-    ) -> bool:
+    def generate(self, result: TestResult, axis_results: List[AxisResult],
+                code_info: CodeInfo, output_path: str) -> bool:
         """인증서 PDF 생성 (form.xlsx 레이아웃과 동일)"""
         if not PDF_AVAILABLE:
             print("PDF generation not available - reportlab not installed")
             return False
 
         try:
-            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.pagesizes import A5
             from reportlab.lib import colors
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.platypus import (
@@ -1060,114 +1138,108 @@ class CertificateGenerator:
             from reportlab.lib.units import mm
             from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
-            doc = SimpleDocTemplate(
-                output_path,
-                pagesize=A4,
-                rightMargin=10 * mm,
-                leftMargin=10 * mm,
-                topMargin=10 * mm,
-                bottomMargin=10 * mm,
-            )
+            doc = SimpleDocTemplate(output_path, pagesize=A4,
+                                   rightMargin=10*mm, leftMargin=10*mm,
+                                   topMargin=10*mm, bottomMargin=10*mm)
 
             elements = []
             styles = getSampleStyleSheet()
 
-            # ========== Row 1: 로고 (좌측) + INSPECTION SHEET (우측) ==========
+            # 공통 스타일 (A5 축소)
+            center_style = ParagraphStyle(
+                "CenterCell",
+                parent=styles["Normal"],
+                fontSize=7,
+                alignment=TA_CENTER,
+            )
+            bold_center_style = ParagraphStyle(
+                "BoldCenterCell",
+                parent=styles["Normal"],
+                fontSize=7,
+                alignment=TA_CENTER,
+                fontName="Helvetica-Bold",
+            )
+
+            # ========== Row 1: 로고 (좌측) + INSPECTION SHEET (가운데) ==========
             logo_cell = ""
             if os.path.exists(self.logo_path):
                 try:
-                    logo_cell = Image(self.logo_path, width=25 * mm, height=25 * mm)
+                    logo_cell = Image(self.logo_path, width=25*mm, height=25*mm)
                 except Exception as e:
                     print(f"Logo load error: {e}")
                     logo_cell = ""
 
             title_style = ParagraphStyle(
-                "TitleCell",
-                parent=styles["Heading1"],
-                fontSize=16,
-                alignment=TA_CENTER,
-                leading=20,
+                'TitleCell', parent=styles['Heading1'], fontSize=16,
+                alignment=TA_CENTER, leading=20
             )
             title_para = Paragraph("<b>INSPECTION SHEET</b>", title_style)
 
             header_data = [[logo_cell, title_para]]
-            header_table = Table(header_data, colWidths=[30 * mm, 150 * mm])
-            header_table.setStyle(
-                TableStyle(
-                    [
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                        ("ALIGN", (0, 0), (0, 0), "LEFT"),
-                        ("ALIGN", (1, 0), (1, 0), "CENTER"),
-                    ]
-                )
-            )
+            header_table = Table(header_data, colWidths=[30*mm, 150*mm])
+            header_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+            ]))
             elements.append(header_table)
-            elements.append(Spacer(1, 5 * mm))
+            elements.append(Spacer(1, 5*mm))
 
-            # ========== Row 3-4: Probe Model / Code / Serial ==========
+            # ========== Probe Model / Code / Serial (셀 병합 및 가운데정렬) ==========
             probe_type = code_info.probe_type if code_info else ""
             info_data = [
-                [
-                    "Probe Model",
-                    probe_type,
-                    "Code",
-                    result.code,
-                    "Serial",
-                    result.serial_number,
-                ],
+                ["Probe Model", probe_type, "Code", result.code, "Serial", result.serial_number],
             ]
-            info_table = Table(
-                info_data,
-                colWidths=[25 * mm, 45 * mm, 15 * mm, 40 * mm, 15 * mm, 40 * mm],
-            )
-            info_table.setStyle(
-                TableStyle(
-                    [
-                        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-                        ("FONTSIZE", (0, 0), (-1, -1), 10),
-                        ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
-                        ("FONTNAME", (2, 0), (2, 0), "Helvetica-Bold"),
-                        ("FONTNAME", (4, 0), (4, 0), "Helvetica-Bold"),
-                        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                        ("TOPPADDING", (0, 0), (-1, -1), 8),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                    ]
-                )
-            )
+            info_table = Table(info_data, colWidths=[25*mm, 45*mm, 15*mm, 40*mm, 15*mm, 40*mm])
+            info_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (2, 0), (2, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (4, 0), (4, 0), 'Helvetica-Bold'),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ]))
             elements.append(info_table)
-            elements.append(Spacer(1, 5 * mm))
+            elements.append(Spacer(1, 5*mm))
 
-            # ========== Row 6: TEST CYCLE DESCRIPTION ==========
+            # ========== TEST CYCLE DESCRIPTION ==========
             section_style = ParagraphStyle(
-                "Section",
-                parent=styles["Heading2"],
-                fontSize=11,
-                alignment=TA_LEFT,
-                spaceAfter=3,
-                spaceBefore=5,
-                textColor=colors.black,
-                backColor=colors.Color(0.9, 0.9, 0.9),
+                'Section', parent=styles['Heading2'], fontSize=11,
+                alignment=TA_LEFT, spaceAfter=3, spaceBefore=5,
+                textColor=colors.black, backColor=colors.Color(0.9, 0.9, 0.9)
             )
             elements.append(Paragraph("TEST CYCLE DESCRIPTION", section_style))
 
-            # ========== Row 7: Cycle sequence 설명 ==========
+            # ========== Cycle sequence 설명 (100 times 고정) ==========
             ncycles = 100
             if axis_results and len(axis_results) > 0:
                 ncycles = axis_results[0].ncycles or 100
 
+            cycle_desc_style = ParagraphStyle(
+                "CycleDesc",
+                parent=styles["Normal"],
+                fontSize=7,
+                alignment=TA_CENTER,
+                spaceBefore=3,
+                spaceAfter=3,
+            )
             cycle_desc = f"Cycle sequence: X+ X- Y+ Y- Z- touch direction repeated {ncycles} times"
-            elements.append(Paragraph(cycle_desc, styles["Normal"]))
-            elements.append(Spacer(1, 3 * mm))
+            elements.append(Paragraph(cycle_desc, styles['Normal']))
+            elements.append(Spacer(1, 3*mm))
 
-            # ========== Row 8-9: Direction / Range 테이블 ==========
+            # ========== Direction / Range 테이블 (셀 병합 및 가운데정렬) ==========
             dir_labels = ["Y-", "X+", "Y+", "X-"]
 
-            # 축별 Range 데이터
+            # 축별 Range 데이터 (소수점 1자리)
             axis_ranges = []
+            axis_2sigmas = []
             for i in range(4):
                 if i < len(axis_results):
-                    axis_ranges.append(f"{axis_results[i].range_val:.2f}")
+                    axis_ranges.append(f"{axis_results[i].range_val:.3f}")
+                    axis_2sigmas.append(f"{2.0 * axis_results[i].sigma:.3f}")
                 else:
                     axis_ranges.append("-")
 
@@ -1175,71 +1247,26 @@ class CertificateGenerator:
             mean_range_val = f"{result.mean_range:.2f}"
 
             axis_data = [
-                [
-                    "Direction",
-                    dir_labels[0],
-                    "",
-                    dir_labels[1],
-                    "",
-                    dir_labels[2],
-                    "",
-                    dir_labels[3],
-                    "",
-                ],
-                [
-                    f"R({ncycles})={result.worst_range_limit:.1f}Micron",
-                    axis_ranges[0],
-                    "micron",
-                    axis_ranges[1],
-                    "micron",
-                    axis_ranges[2],
-                    "micron",
-                    axis_ranges[3],
-                    "micron",
-                ],
-                [
-                    f"R({ncycles})={result.worst_range_limit:.1f}Micron",
-                    mean_range_val,
-                    "",
-                    "",
-                    "",
-                    "",
-                    "micron",
-                    "",
-                    "",
-                ],
+                ["Direction", dir_labels[0], "", dir_labels[1], "", dir_labels[2], "", dir_labels[3], ""],
+                [f"R({ncycles})={result.worst_range_limit:.1f}Micron",
+                 axis_ranges[0], "micron", axis_ranges[1], "micron", axis_ranges[2], "micron", axis_ranges[3], "micron"],
+                [f"R({ncycles})={result.worst_range_limit:.1f}Micron",
+                 mean_range_val, "", "", "", "", "micron", "", ""],
             ]
 
-            col_w = 20 * mm
-            axis_table = Table(
-                axis_data,
-                colWidths=[
-                    40 * mm,
-                    col_w,
-                    12 * mm,
-                    col_w,
-                    12 * mm,
-                    col_w,
-                    12 * mm,
-                    col_w,
-                    12 * mm,
-                ],
-            )
-            axis_table.setStyle(
-                TableStyle(
-                    [
-                        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-                        ("FONTSIZE", (0, 0), (-1, -1), 9),
-                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                        ("ALIGN", (0, 0), (0, -1), "LEFT"),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.95, 0.95, 0.95)),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                        ("TOPPADDING", (0, 0), (-1, -1), 4),
-                    ]
-                )
-            )
+            col_w = 20*mm
+            axis_table = Table(axis_data, colWidths=[40*mm, col_w, 12*mm, col_w, 12*mm, col_w, 12*mm, col_w, 12*mm])
+            axis_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.95, 0.95, 0.95)),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ]))
             elements.append(axis_table)
             elements.append(Spacer(1, 3 * mm))
 
@@ -1248,73 +1275,45 @@ class CertificateGenerator:
                 ["Un direct direction", "Z-", "", "", "", "Dia", "", "", ""],
                 ["", "Micron", "", "", "", "", "Micron", "", ""],
             ]
-            z_table = Table(
-                z_data,
-                colWidths=[
-                    40 * mm,
-                    col_w,
-                    12 * mm,
-                    col_w,
-                    12 * mm,
-                    col_w,
-                    12 * mm,
-                    col_w,
-                    12 * mm,
-                ],
-            )
-            z_table.setStyle(
-                TableStyle(
-                    [
-                        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-                        ("FONTSIZE", (0, 0), (-1, -1), 9),
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                        ("ALIGN", (0, 0), (0, -1), "LEFT"),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                        ("TOPPADDING", (0, 0), (-1, -1), 4),
-                    ]
-                )
-            )
+            z_table = Table(z_data, colWidths=[40*mm, col_w, 12*mm, col_w, 12*mm, col_w, 12*mm, col_w, 12*mm])
+            z_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ]))
             elements.append(z_table)
-            elements.append(Spacer(1, 8 * mm))
+            elements.append(Spacer(1, 8*mm))
 
-            # ========== Row 13: 날짜 / TEST OK or NG / 작업자 ==========
+            # ========== 날짜 / TEST OK or NG / 작업자 (가운데정렬) ==========
             result_text = "TEST OK" if result.result == "OK" else "TEST NG"
             result_color = colors.darkgreen if result.result == "OK" else colors.red
 
-            # 결과 텍스트 스타일
             result_para_style = ParagraphStyle(
-                "ResultText",
-                parent=styles["Normal"],
-                fontSize=12,
-                alignment=TA_CENTER,
-                textColor=result_color,
-                fontName="Helvetica-Bold",
+                'ResultText', parent=styles['Normal'], fontSize=12,
+                alignment=TA_CENTER, textColor=result_color, fontName='Helvetica-Bold'
             )
 
             footer_data = [
-                [
-                    result.date.strftime("%Y-%m-%d"),
-                    Paragraph(f"<b>{result_text}</b>", result_para_style),
-                    f"operator: {result.operator}",
-                ]
+                [result.date.strftime('%Y-%m-%d'),
+                 Paragraph(f"<b>{result_text}</b>", result_para_style),
+                 f"operator: {result.operator}"]
             ]
-            footer_table = Table(footer_data, colWidths=[50 * mm, 60 * mm, 70 * mm])
-            footer_table.setStyle(
-                TableStyle(
-                    [
-                        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-                        ("FONTSIZE", (0, 0), (-1, -1), 10),
-                        ("ALIGN", (0, 0), (0, 0), "LEFT"),
-                        ("ALIGN", (1, 0), (1, 0), "CENTER"),
-                        ("ALIGN", (2, 0), (2, 0), "RIGHT"),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                        ("TOPPADDING", (0, 0), (-1, -1), 8),
-                    ]
-                )
-            )
+            footer_table = Table(footer_data, colWidths=[50*mm, 60*mm, 70*mm])
+            footer_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+                ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ]))
             elements.append(footer_table)
 
             # PDF 빌드
@@ -1486,9 +1485,7 @@ class MiniasApp:
         )
         self.btn_pause.pack(side=tk.LEFT, padx=5)
 
-        self.btn_print = ttk.Button(
-            btn_frame, text="Save PDF", command=self._on_print_certificate
-        )
+        self.btn_print = ttk.Button(btn_frame, text="Save PDF", command=self._on_print_certificate)
         self.btn_print.pack(side=tk.LEFT, padx=5)
 
         self.btn_print_direct = ttk.Button(
@@ -1515,23 +1512,15 @@ class MiniasApp:
         input_frame.pack(fill=tk.X)
 
         # Probe Type
-        ttk.Label(input_frame, text="Probe Type:").grid(
-            row=0, column=0, sticky=tk.E, padx=5, pady=2
-        )
-        self.entry_probe_type = ttk.Entry(
-            input_frame, textvariable=self.var_probe_type, width=25, state="readonly"
-        )
+        ttk.Label(input_frame, text="Probe Type:").grid(row=0, column=0, sticky=tk.E, padx=5, pady=2)
+        self.entry_probe_type = ttk.Entry(input_frame, textvariable=self.var_probe_type, width=25, state='readonly')
         self.entry_probe_type.grid(row=0, column=1, sticky=tk.W, padx=5, pady=2)
 
         # Code
-        ttk.Label(input_frame, text="Code:").grid(
-            row=0, column=2, sticky=tk.E, padx=5, pady=2
-        )
-        self.combo_code = ttk.Combobox(
-            input_frame, textvariable=self.var_code, width=22
-        )
+        ttk.Label(input_frame, text="Code:").grid(row=0, column=2, sticky=tk.E, padx=5, pady=2)
+        self.combo_code = ttk.Combobox(input_frame, textvariable=self.var_code, width=22)
         self.combo_code.grid(row=0, column=3, sticky=tk.W, padx=5, pady=2)
-        self.combo_code.bind("<<ComboboxSelected>>", self._on_code_selected)
+        self.combo_code.bind('<<ComboboxSelected>>', self._on_code_selected)
 
         # Serial Number
         ttk.Label(input_frame, text="Serial Number:").grid(
@@ -1543,23 +1532,17 @@ class MiniasApp:
         self.entry_serial.grid(row=1, column=1, sticky=tk.W, padx=5, pady=2)
 
         # Checked by (Operator)
-        ttk.Label(input_frame, text="Checked by:").grid(
-            row=1, column=2, sticky=tk.E, padx=5, pady=2
-        )
-        self.combo_operator = ttk.Combobox(
-            input_frame, textvariable=self.var_operator, width=22
-        )
+        ttk.Label(input_frame, text="Checked by:").grid(row=1, column=2, sticky=tk.E, padx=5, pady=2)
+        self.combo_operator = ttk.Combobox(input_frame, textvariable=self.var_operator, width=22)
         self.combo_operator.grid(row=1, column=3, sticky=tk.W, padx=5, pady=2)
 
         # ID 조회 프레임
         id_frame = ttk.Frame(input_frame)
         id_frame.grid(row=2, column=0, columnspan=4, sticky=tk.W, pady=5)
 
-        ttk.Label(id_frame, text="Load ID:").pack(side=tk.LEFT, padx=5)
+        ttk.Label(id_frame, text="Serial/ID:").pack(side=tk.LEFT, padx=5)
         self.var_load_id = tk.StringVar()
-        self.entry_load_id = ttk.Entry(
-            id_frame, textvariable=self.var_load_id, width=10
-        )
+        self.entry_load_id = ttk.Entry(id_frame, textvariable=self.var_load_id, width=10)
         self.entry_load_id.pack(side=tk.LEFT, padx=5)
         self.btn_load_id = ttk.Button(
             id_frame, text="Load", command=self._on_load_id, width=8
@@ -1573,7 +1556,7 @@ class MiniasApp:
             id_frame, textvariable=self.var_select_id, width=30, state="readonly"
         )
         self.combo_id.pack(side=tk.LEFT, padx=5)
-        self.combo_id.bind("<<ComboboxSelected>>", self._on_id_selected)
+        self.combo_id.bind('<<ComboboxSelected>>', self._on_id_selected)
 
         # 상태 표시 프레임 (시안색 배경)
         status_frame = tk.Frame(self.root, bg="#80FFFF", height=60)
@@ -1626,19 +1609,12 @@ class MiniasApp:
         grid_frame = ttk.Frame(self.root, padding="5")
         grid_frame.pack(fill=tk.BOTH, expand=True, padx=5)
 
-        columns = ("Axis", "Range", "Sigma", "Result", "2nd", "Result2", "Dir")
-        self.tree = ttk.Treeview(grid_frame, columns=columns, show="headings", height=8)
+        columns = ('Axis', 'Range', 'Sigma', 'Result', '2nd', 'Result2', 'Dir')
+        self.tree = ttk.Treeview(grid_frame, columns=columns, show='headings', height=8)
 
         # 컬럼 설정
-        col_widths = {
-            "Axis": 60,
-            "Range": 100,
-            "Sigma": 100,
-            "Result": 70,
-            "2nd": 70,
-            "Result2": 70,
-            "Dir": 50,
-        }
+        col_widths = {'Axis': 60, 'Range': 100, 'Sigma': 100, 'Result': 70,
+                     '2nd': 70, 'Result2': 70, 'Dir': 50}
         for col in columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=col_widths.get(col, 80), anchor=tk.CENTER)
@@ -1751,11 +1727,9 @@ class MiniasApp:
         )
 
         # 시리얼 통신 연결 (설정된 경우)
-        if SERIAL_AVAILABLE and self.config.get("port"):
-            port = self.config["port"]
-            baudrate = self.config["baudrate"]
-            self.serial.port = port
-            self.serial.baudrate = baudrate
+        if SERIAL_AVAILABLE and self.config.get('port'):
+            self.serial.port = self.config['port']
+            self.serial.baudrate = self.config['baudrate']
             if self.serial.connect():
                 self.statusbar.config(text=f"Connected to {port} @ {baudrate} bps")
             else:
@@ -1790,20 +1764,33 @@ class MiniasApp:
         test_thread.start()
 
     def _run_test(self):
-        """테스트 실행 (백그라운드)"""
+        """테스트 실행 (백그라운드)
+        - 1터치 = 1사이클
+        - 매 터치마다 측정값 디스플레이에 표기
+        - 100사이클 완료 시 자동으로 다음 축으로 넘어가지 않음 (사용자 확인 대기)
+        - NG 시 해당 축 재측정
+        """
+        import time
+
         naxis = int(self.var_naxis.get())
         ncycles = int(self.var_ncycles.get())
 
-        for axis in range(1, naxis + 1):
+        axis = 1
+        while axis <= naxis:
             self.current_axis = axis
             self.measurements[axis] = []
 
-            for cycle in range(1, ncycles + 1):
+            # 시리얼 버퍼 초기화 (이전 축의 잔여 데이터 제거)
+            if self.serial.is_connected:
+                self.serial.clear_buffer()
+
+            cycle = 1
+            while cycle <= ncycles:
                 if not self.is_testing:
                     return
 
                 while self.is_paused:
-                    self.root.after(100)
+                    time.sleep(0.1)
                     if not self.is_testing:
                         return
 
@@ -1815,7 +1802,9 @@ class MiniasApp:
                     ),
                 )
 
-                # 측정값 읽기
+                # 측정값 읽기 - 1터치 = 1사이클
+                # _read_loop가 NULL/빈줄 필터링 후 유효 데이터만 큐에 넣음
+                # read_value는 큐에서 숫자 1개를 즉시 꺼냄 (딜레이 없음)
                 value = None
                 if self.serial.is_connected:
                     value = self.serial.read_value(timeout=2.0)
@@ -1823,14 +1812,31 @@ class MiniasApp:
                 if value is None:
                     # 시뮬레이션 모드
                     import random
-
                     value = random.gauss(0, 0.001)
 
                 self.measurements[axis].append(value)
                 self.db.save_measure(axis, cycle, value)
 
-                # 짧은 대기
-                self.root.after(10)
+                # 매 터치마다 측정값을 상태바 + 그리드에 실시간 표시
+                current_values = list(self.measurements[axis])
+                cur_range = self.calculator.calculate_range(current_values)
+                cur_sigma = (
+                    self.calculator.calculate_sigma(current_values)
+                    if len(current_values) >= 2
+                    else 0.0
+                )
+
+                self.root.after(
+                    0,
+                    lambda a=axis, c=cycle, v=value, r=cur_range, s=cur_sigma: (
+                        self.var_status.set(
+                            f"Axis {a}, Cycle {c}/{ncycles} - Value: {v:.3f}"
+                        ),
+                        self._update_grid_row_live(a, c, ncycles, v, r, s),
+                    ),
+                )
+
+                cycle += 1
 
             # 축 완료 - 결과 계산
             values = self.measurements[axis]
@@ -1855,39 +1861,51 @@ class MiniasApp:
                 range_val=range_val,
                 result=axis_result,
                 ncycles=ncycles,
-                direction=str(axis),
+                direction=str(axis)
             )
             self.axis_results.append(ar)
 
             # 그리드 업데이트
-            self.root.after(
-                0,
-                lambda a=axis,
-                r=range_val,
-                s=sigma,
-                res=axis_result: self._update_grid_row(a, r, s, res),
-            )
+            self.root.after(0, lambda a=axis, r=range_val, s=sigma, res=axis_result:
+                           self._update_grid_row(a, r, s, res))
 
         # 테스트 완료
         self.root.after(0, self._complete_test)
 
-    def _update_grid_row(self, axis: int, range_val: float, sigma: float, result: str):
-        """그리드 행 업데이트"""
+    def _update_grid_row_live(
+        self,
+        axis: int,
+        cycle: int,
+        ncycles: int,
+        value: float,
+        cur_range: float,
+        cur_sigma: float,
+    ):
+        """매 터치마다 그리드 행 실시간 업데이트 (진행 중 상태)"""
         children = self.tree.get_children()
         if axis <= len(children):
             item = children[axis - 1]
+            two_sigma = 2.0 * cur_sigma
             self.tree.item(
                 item,
                 values=(
                     str(axis),
-                    f"{range_val:.6f}",
-                    f"{sigma:.6f}",
-                    result,
+                    f"{cur_range:.3f}",
+                    f"{two_sigma:.3f}",
+                    f"{cycle}/{ncycles}",
                     "",
                     "",
                     str(axis),
                 ),
             )
+
+    def _update_grid_row(self, axis: int, range_val: float, sigma: float, result: str):
+        """그리드 행 업데이트 (2Sigma = 2 * sigma 표시) - 축 완료 시"""
+        children = self.tree.get_children()
+        if axis <= len(children):
+            item = children[axis - 1]
+            self.tree.item(item, values=(str(axis), f"{range_val:.6f}", f"{sigma:.6f}",
+                                         result, '', '', str(axis)))
 
     def _complete_test(self):
         """테스트 완료 처리"""
@@ -1915,35 +1933,15 @@ class MiniasApp:
                 self.var_check_range.get(),
             )
 
-        # Mean, Worst 행 업데이트
+        # Mean, Worst 행 업데이트 (2Sigma = 2 * sigma 표시)
         children = self.tree.get_children()
         if len(children) >= 6:
             # Mean 행
-            self.tree.item(
-                children[4],
-                values=(
-                    "Mean",
-                    f"{mean_range:.6f}",
-                    f"{mean_sigma:.6f}",
-                    "",
-                    "",
-                    "",
-                    "",
-                ),
-            )
+            self.tree.item(children[4], values=('Mean', f"{mean_range:.6f}", f"{mean_sigma:.6f}",
+                                                '', '', '', ''))
             # Worst 행
-            self.tree.item(
-                children[5],
-                values=(
-                    "Worst",
-                    f"{worst_range:.6f}",
-                    f"{worst_sigma:.6f}",
-                    overall_result,
-                    "",
-                    "",
-                    "",
-                ),
-            )
+            self.tree.item(children[5], values=('Worst', f"{worst_range:.6f}", f"{worst_sigma:.6f}",
+                                                overall_result, '', '', ''))
 
         # 결과 저장
         result = TestResult(
@@ -1999,45 +1997,209 @@ class MiniasApp:
             self.btn_pause.config(text="PAUSE")
             self.var_status.set(f"Testing... Axis {self.current_axis}")
 
+    def _on_stop(self):
+        """테스트 중단 — 현재까지의 결과를 저장하고 테스트 종료"""
+        if not self.is_testing:
+            return
+
+        confirm = messagebox.askyesno(
+            "Stop Test",
+            "Stop the current test?\nResults measured so far will be saved.",
+        )
+        if not confirm:
+            return
+
+        # 테스트 중단
+        self.is_testing = False
+        self.is_paused = False
+
+        # 현재까지 완료된 축의 결과 계산
+        # (measurements에 데이터가 있는 축만 결과 생성)
+        for axis, values in self.measurements.items():
+            if not values:
+                continue
+
+            # 이미 axis_results에 있는 축은 건너뜀
+            if any(ar.axis == axis for ar in self.axis_results):
+                continue
+
+            sigma = self.calculator.calculate_sigma(values)
+            range_val = self.calculator.calculate_range(values)
+
+            axis_result_str = "OK"
+            if self.limits:
+                axis_result_str = self.calculator.evaluate_axis_result(
+                    sigma,
+                    range_val,
+                    self.limits,
+                    self.var_check_sigma.get(),
+                    self.var_check_range.get(),
+                )
+
+            ar = AxisResult(
+                axis=axis,
+                sigma=sigma,
+                range_val=range_val,
+                result=axis_result_str,
+                ncycles=len(values),
+                direction=str(axis),
+            )
+            self.axis_results.append(ar)
+
+        # 결과가 있으면 저장
+        if self.axis_results:
+            self._complete_test()
+            self.var_status.set("Test STOPPED - Results saved")
+        else:
+            self.var_status.set("Test STOPPED - No results to save")
+
+        self.btn_start.config(state="normal")
+        self.btn_pause.config(text="PAUSE")
+        self.serial.disconnect()
+
+    def _stop_and_save_current(self):
+        """Pause 상태에서 SavePDF 시 호출 — 현재까지 데이터를 저장"""
+        # 테스트 중단
+        self.is_testing = False
+        self.is_paused = False
+
+        # 현재까지 완료된 축 결과 계산
+        for axis, values in self.measurements.items():
+            if not values:
+                continue
+            if any(ar.axis == axis for ar in self.axis_results):
+                continue
+
+            sigma = self.calculator.calculate_sigma(values)
+            range_val = self.calculator.calculate_range(values)
+
+            axis_result_str = "OK"
+            if self.limits:
+                axis_result_str = self.calculator.evaluate_axis_result(
+                    sigma,
+                    range_val,
+                    self.limits,
+                    self.var_check_sigma.get(),
+                    self.var_check_range.get(),
+                )
+
+            ar = AxisResult(
+                axis=axis,
+                sigma=sigma,
+                range_val=range_val,
+                result=axis_result_str,
+                ncycles=len(values),
+                direction=str(axis),
+            )
+            self.axis_results.append(ar)
+
+        if self.axis_results:
+            self._complete_test()
+
+        self.btn_start.config(state="normal")
+        self.btn_pause.config(text="PAUSE")
+        self.serial.disconnect()
+
     def _on_print_certificate(self):
-        """인증서 출력"""
+        """인증서 출력 — 테스트 완료 또는 Pause/Stop 상태에서 사용 가능"""
+        # Pause 상태에서 호출된 경우: 현재까지 결과를 먼저 저장
+        if self.is_testing and self.is_paused and self.current_id == 0:
+            save_now = messagebox.askyesno(
+                "Save Current Results",
+                "Test is paused. Save current results and generate PDF?",
+            )
+            if not save_now:
+                return
+            # 현재까지 데이터로 결과 저장
+            self._stop_and_save_current()
+
         if self.current_id == 0:
             messagebox.showwarning("Warning", "No test result to print")
             return
+
+        # Serial Number를 기본 파일명으로 사용
+        serial_number = (
+            self.var_serial_number.get().strip() or f"Certificate_{self.current_id}"
+        )
 
         # 파일 저장 대화상자
         file_path = filedialog.asksaveasfilename(
             defaultextension=".pdf",
             filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
-            initialfile=f"Certificate_{self.current_id}.pdf",
+            initialfile=f"Certificate_{self.current_id}.pdf"
         )
 
         if file_path:
             result = self.db.get_test_result(self.current_id)
             axis_results = self.db.get_axis_results(self.current_id)
 
-            if result:
-                # 코드 정보 가져오기 (current_code_info가 없으면 DB에서 조회)
-                code_info = self.current_code_info
-                if code_info is None and result.code:
-                    code_info = self.db.get_code_info(result.code)
-                if code_info is None:
-                    code_info = CodeInfo(code=result.code, probe_type="")
+        if not result:
+            messagebox.showerror("Error", "Test result not found in database")
+            return
+
+        if not axis_results:
+            messagebox.showerror(
+                "Error",
+                f"No axis results found for test ID {self.current_id}.\n"
+                "The test may not have completed properly.",
+            )
+            return
+
+        # 코드 정보 가져오기 (current_code_info가 없으면 DB에서 조회)
+        code_info = self.current_code_info
+        if code_info is None and result.code:
+            code_info = self.db.get_code_info(result.code)
+        if code_info is None:
+            code_info = CodeInfo(code=result.code, probe_type="")
 
                 try:
                     success = self.cert_generator.generate(
                         result, axis_results, code_info, file_path
                     )
                     if success:
-                        messagebox.showinfo(
-                            "Success", f"Certificate saved to {file_path}"
-                        )
+                        messagebox.showinfo("Success", f"Certificate saved to {file_path}")
                     else:
                         messagebox.showerror("Error", "Failed to generate certificate")
                 except Exception as e:
-                    messagebox.showerror(
-                        "Error", f"Failed to generate certificate: {e}"
-                    )
+                    messagebox.showerror("Error", f"Failed to generate certificate: {e}")
+
+    def _on_delete_result(self):
+        """현재 로드된 테스트 결과(성적서) 삭제"""
+        if self.current_id == 0:
+            messagebox.showwarning("Warning", "No test result loaded to delete")
+            return
+
+        # 확인 대화상자
+        serial = self.var_serial_number.get().strip() or "N/A"
+        confirm = messagebox.askyesno(
+            "Confirm Delete",
+            f"Delete test result?\n\n"
+            f"  ID: {self.current_id}\n"
+            f"  Serial: {serial}\n\n"
+            f"This action cannot be undone.",
+        )
+        if not confirm:
+            return
+
+        try:
+            self.db.delete_test_result(self.current_id)
+            messagebox.showinfo("Deleted", f"Test result ID {self.current_id} deleted.")
+
+            # UI 초기화
+            self.current_id = 0
+            self.var_serial_number.set("")
+            self.var_load_id.set("")
+            self.var_status.set("Test result deleted.")
+
+            # 결과 테이블 클리어
+            for item in self.tree_results.get_children():
+                self.tree_results.delete(item)
+
+            # ID 목록 새로고침
+            self._refresh_id_list()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to delete test result: {e}")
 
     def _refresh_id_list(self):
         """ID 목록 새로고침"""
@@ -2048,12 +2210,62 @@ class MiniasApp:
         self.combo_id["values"] = id_display
 
     def _on_load_id(self):
-        """ID로 테스트 결과 로드"""
-        try:
-            id_col = int(self.var_load_id.get())
-            self._load_test_result(id_col)
-        except ValueError:
-            messagebox.showwarning("Warning", "Please enter a valid ID number")
+        """Serial Number 우선으로 테스트 결과 로드 (fallback: ID 검색)"""
+        search_text = self.var_load_id.get().strip()
+        if not search_text:
+            messagebox.showwarning("Warning", "Please enter a Serial Number or ID")
+            return
+
+        # 1) Serial Number로 먼저 검색
+        results = self.db.search_by_serial_number(search_text)
+
+        # 2) Serial Number 결과가 없고 숫자인 경우 → ID로 fallback 검색
+        if not results:
+            try:
+                id_col = int(search_text)
+                self._load_test_result(id_col)
+                return
+            except ValueError:
+                pass
+            messagebox.showwarning(
+                "Warning", f"No test result found for: {search_text}"
+            )
+            return
+
+        if len(results) == 1:
+            # 결과가 하나면 바로 로드
+            self._load_test_result(results[0][0])
+        else:
+            # 여러 결과가 있으면 선택 대화상자
+            dialog = tk.Toplevel(self.root)
+            dialog.title("Select Test Result")
+            dialog.geometry("400x300")
+            dialog.transient(self.root)
+            dialog.grab_set()
+
+            ttk.Label(
+                dialog,
+                text=f"Found {len(results)} results for '{search_text}':",
+                font=("Arial", 10),
+            ).pack(pady=10, padx=10)
+
+            listbox = tk.Listbox(dialog, width=50, height=10)
+            listbox.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+            for id_col, code, serial in results:
+                listbox.insert(
+                    tk.END, f"ID: {id_col} - Code: {code} - Serial: {serial}"
+                )
+
+            def on_select():
+                sel = listbox.curselection()
+                if sel:
+                    selected_id = results[sel[0]][0]
+                    dialog.destroy()
+                    self._load_test_result(selected_id)
+
+            ttk.Button(dialog, text="Load", command=on_select, width=10).pack(pady=10)
+            dialog.wait_window()
 
     def _on_id_selected(self, event=None):
         """콤보박스에서 ID 선택"""
@@ -2093,45 +2305,15 @@ class MiniasApp:
             axis_num = int(ar.axis) if ar.axis else 0
             if axis_num > 0 and axis_num <= len(children):
                 item = children[axis_num - 1]
-                self.tree.item(
-                    item,
-                    values=(
-                        str(axis_num),
-                        f"{ar.range_val:.6f}",
-                        f"{ar.sigma:.6f}",
-                        ar.result,
-                        "",
-                        "",
-                        ar.direction or str(axis_num),
-                    ),
-                )
+                self.tree.item(item, values=(str(axis_num), f"{ar.range_val:.6f}", f"{ar.sigma:.6f}",
+                                             ar.result, '', '', ar.direction or str(axis_num)))
 
-        # Mean, Worst 업데이트
+        # Mean, Worst 업데이트 (2Sigma 표시)
         if len(children) >= 6:
-            self.tree.item(
-                children[4],
-                values=(
-                    "Mean",
-                    f"{result.mean_range:.6f}",
-                    f"{result.mean_sigma:.6f}",
-                    "",
-                    "",
-                    "",
-                    "",
-                ),
-            )
-            self.tree.item(
-                children[5],
-                values=(
-                    "Worst",
-                    f"{result.worst_range:.6f}",
-                    f"{result.worst_sigma:.6f}",
-                    result.result,
-                    "",
-                    "",
-                    "",
-                ),
-            )
+            self.tree.item(children[4], values=('Mean', f"{result.mean_range:.6f}", f"{result.mean_sigma:.6f}",
+                                                '', '', '', ''))
+            self.tree.item(children[5], values=('Worst', f"{result.worst_range:.6f}", f"{result.worst_sigma:.6f}",
+                                                result.result, '', '', ''))
 
         # 상태 업데이트
         self.current_id = id_col
@@ -2200,12 +2382,9 @@ class MiniasApp:
     def _apply_settings(self, new_config: Dict):
         """설정 적용 및 INI 파일 저장"""
         self.config.update(new_config)
-        self.serial.port = self.config.get("port", "COM1")
-        self.serial.baudrate = self.config.get("baudrate", 9600)
-        self._save_config()
-        self.statusbar.config(
-            text=f"Settings saved: {self.config['port']} @ {self.config['baudrate']} bps"
-        )
+        self.serial.port = self.config.get('port', 'COM1')
+        self.serial.baudrate = self.config.get('baudrate', 9600)
+        self.statusbar.config(text=f"Settings updated: {self.config['port']} @ {self.config['baudrate']} bps")
 
     def _on_limits(self):
         """한계값 설정 대화상자"""
@@ -2250,9 +2429,9 @@ class LimitsDialog:
         self.dialog.grab_set()
 
         # 변수
-        self.var_mean_sigma = tk.StringVar(value=f"{self.limits.mean_sigma:.6f}")
-        self.var_mean_range = tk.StringVar(value=f"{self.limits.mean_range:.6f}")
-        self.var_worst_range = tk.StringVar(value=f"{self.limits.worst_range:.6f}")
+        self.var_mean_sigma = tk.StringVar(value=f"{self.limits.mean_sigma:.3f}")
+        self.var_mean_range = tk.StringVar(value=f"{self.limits.mean_range:.3f}")
+        self.var_worst_range = tk.StringVar(value=f"{self.limits.worst_range:.3f}")
 
         # GUI
         frame = ttk.Frame(self.dialog, padding="10")
@@ -2341,84 +2520,40 @@ class SettingsDialog:
         frame = ttk.Frame(self.dialog, padding="15")
         frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(
-            frame, text="Communication Settings", font=("Arial", 11, "bold")
-        ).grid(row=0, column=0, columnspan=3, pady=10)
+        ttk.Label(frame, text="Communication Settings", font=('Arial', 11, 'bold')).grid(
+            row=0, column=0, columnspan=2, pady=15)
 
-        # --- Port 선택 ---
-        ttk.Label(frame, text="Port:").grid(
-            row=1, column=0, sticky=tk.E, pady=8, padx=10
-        )
+        # COM Port
+        ttk.Label(frame, text="COM Port:").grid(row=1, column=0, sticky=tk.E, pady=10, padx=10)
 
         # 사용 가능한 포트 목록 가져오기
-        available_ports = self._get_port_list()
+        available_ports = SerialCommunicator.get_available_ports()
+        if not available_ports:
+            available_ports = ['COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8']
 
-        self.combo_port = ttk.Combobox(
-            frame, textvariable=self.var_port, width=20, values=available_ports
-        )
-        self.combo_port.grid(row=1, column=1, sticky=tk.W, pady=8)
-        self.combo_port.bind("<<ComboboxSelected>>", self._on_port_selected)
+        self.combo_port = ttk.Combobox(frame, textvariable=self.var_port, width=15, values=available_ports)
+        self.combo_port.grid(row=1, column=1, sticky=tk.W, pady=10)
+
+        # Baudrate
+        ttk.Label(frame, text="Baudrate:").grid(row=2, column=0, sticky=tk.E, pady=10, padx=10)
+        self.combo_baudrate = ttk.Combobox(frame, textvariable=self.var_baudrate, width=15,
+                                           values=self.BAUDRATES, state='readonly')
+        self.combo_baudrate.grid(row=2, column=1, sticky=tk.W, pady=10)
+
+        # 포트 상태 표시
+        self.lbl_status = ttk.Label(frame, text="", foreground='gray')
+        self.lbl_status.grid(row=3, column=0, columnspan=2, pady=10)
 
         # Refresh 버튼
-        ttk.Button(frame, text="Refresh", command=self._refresh_ports, width=8).grid(
-            row=1, column=2, padx=5
-        )
-
-        # --- 포트 상세 정보 표시 ---
-        self.lbl_port_desc = ttk.Label(
-            frame, text="", foreground="gray", wraplength=400
-        )
-        self.lbl_port_desc.grid(row=2, column=0, columnspan=3, pady=2, padx=10)
-
-        # --- Baudrate ---
-        ttk.Label(frame, text="Baudrate:").grid(
-            row=3, column=0, sticky=tk.E, pady=8, padx=10
-        )
-        self.combo_baudrate = ttk.Combobox(
-            frame,
-            textvariable=self.var_baudrate,
-            width=20,
-            values=self.BAUDRATES,
-            state="readonly",
-        )
-        self.combo_baudrate.grid(row=3, column=1, sticky=tk.W, pady=8)
-
-        # --- 포트 목록 (상세) ---
-        ttk.Label(frame, text="Detected Ports:", font=("Arial", 9, "bold")).grid(
-            row=4, column=0, columnspan=3, sticky=tk.W, padx=10, pady=(10, 2)
-        )
-
-        # Treeview로 포트 상세목록 표시
-        tree_frame = ttk.Frame(frame)
-        tree_frame.grid(row=5, column=0, columnspan=3, padx=10, pady=2, sticky=tk.EW)
-
-        self.port_tree = ttk.Treeview(
-            tree_frame, columns=("port", "description"), show="headings", height=4
-        )
-        self.port_tree.heading("port", text="Port")
-        self.port_tree.heading("description", text="Description")
-        self.port_tree.column("port", width=80, stretch=False)
-        self.port_tree.column("description", width=350, stretch=True)
-        self.port_tree.pack(fill=tk.X, expand=True)
-        self.port_tree.bind("<<TreeviewSelect>>", self._on_tree_select)
-
-        # --- 연결 상태 ---
-        self.lbl_status = ttk.Label(frame, text="", foreground="gray")
-        self.lbl_status.grid(row=6, column=0, columnspan=3, pady=5)
+        ttk.Button(frame, text="Refresh Ports", command=self._refresh_ports).grid(
+            row=4, column=0, columnspan=2, pady=5)
 
         # --- 버튼 ---
         btn_frame = ttk.Frame(frame)
         btn_frame.grid(row=7, column=0, columnspan=3, pady=10)
 
-        ttk.Button(
-            btn_frame, text="Test Connection", command=self._test_connection, width=15
-        ).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="Apply", command=self._apply, width=10).pack(
-            side=tk.LEFT, padx=5
-        )
-        ttk.Button(
-            btn_frame, text="Cancel", command=self.dialog.destroy, width=10
-        ).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Apply", command=self._apply, width=10).pack(side=tk.LEFT, padx=10)
+        ttk.Button(btn_frame, text="Cancel", command=self.dialog.destroy, width=10).pack(side=tk.LEFT, padx=10)
 
         # 초기 데이터 로드
         self._update_port_tree()
@@ -2476,30 +2611,19 @@ class SettingsDialog:
 
     def _refresh_ports(self):
         """포트 목록 새로고침"""
-        port_list = self._get_port_list()
-        self.combo_port["values"] = port_list
-        self._update_port_tree()
-        self._on_port_selected()
+        available_ports = SerialCommunicator.get_available_ports()
+        if not available_ports:
+            available_ports = ['COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8']
+        self.combo_port['values'] = available_ports
+        self._update_status()
 
-    def _test_connection(self):
-        """선택한 포트로 연결 테스트"""
-        port = self.var_port.get()
-        baudrate = int(self.var_baudrate.get())
-
-        if not port:
-            messagebox.showwarning("Warning", "포트를 선택하세요.")
-            return
-
-        self.lbl_status.config(text=f"Testing {port}...", foreground="gray")
-        self.dialog.update_idletasks()
-
-        success, msg = SerialCommunicator.test_port(port, baudrate)
-        if success:
-            self.lbl_status.config(text=f"OK: {msg}", foreground="green")
-            messagebox.showinfo("Connection Test", f"Success!\n{msg}")
+    def _update_status(self):
+        """포트 상태 업데이트"""
+        available_ports = SerialCommunicator.get_available_ports()
+        if available_ports:
+            self.lbl_status.config(text=f"Available ports: {', '.join(available_ports)}", foreground='green')
         else:
-            self.lbl_status.config(text=f"FAIL: {msg}", foreground="red")
-            messagebox.showerror("Connection Test", f"Failed!\n{msg}")
+            self.lbl_status.config(text="No COM ports detected", foreground='red')
 
     def _apply(self):
         """설정 적용"""
@@ -2509,10 +2633,7 @@ class SettingsDialog:
         if self.callback:
             self.callback(self.config)
 
-        messagebox.showinfo(
-            "Success",
-            f"Settings saved:\nPort: {self.config['port']}\nBaudrate: {self.config['baudrate']}",
-        )
+        messagebox.showinfo("Success", f"Settings applied:\nPort: {self.config['port']}\nBaudrate: {self.config['baudrate']}")
         self.dialog.destroy()
 
 
