@@ -917,41 +917,55 @@ class SerialCommunicator:
                 _time.sleep(0.05)
 
     def read_value(self, timeout: float = 1.0) -> Optional[float]:
-        """측정값 읽기"""
+        """측정값 읽기
+
+        장비 데이터 형식 (실측 확인):
+          '01A-000.0018'  →  축 prefix '01A' + 측정값 '-000.0018'
+          - 앞 2~3자: 축 번호(숫자) + 채널(영문자)
+          - 나머지: 부호 + 숫자값 (mm 단위)
+        """
+        import re
+
         try:
             data = self.data_queue.get(timeout=timeout)
-            # 숫자값 파싱 (장비 프로토콜에 따라 수정 필요)
-            raw_value = float(data.replace(",", "."))
+
+            # 축/채널 prefix 제거 후 숫자값만 추출
+            # 예: '01A-000.0018' → prefix='01A', value_str='-000.0018'
+            #     '0A1-000.0019' → prefix='0A1', value_str='-000.0019'
+            #     '01A+000.0018' → prefix='01A', value_str='+000.0018'
+            # prefix 없는 순수 숫자 ('911', '-0.0018') 도 허용
+
+            # 1) 부호(+/-)를 구분자로 prefix와 숫자값 분리
+            match = re.match(r"^([^-+.]*?)([-+]\d+\.?\d*)$", data)
+            if match and match.group(1):
+                prefix = match.group(1)
+                value_str = match.group(2)
+                self._serial_log(f"[Serial] Prefix='{prefix}', Value='{value_str}'")
+            else:
+                # 2) 부호 없는 경우: 영문자 뒤의 숫자를 값으로 추출
+                match2 = re.match(r"^([0-9A-Za-z]*[A-Za-z])(\d+\.?\d*)$", data)
+                if match2:
+                    prefix = match2.group(1)
+                    value_str = match2.group(2)
+                    self._serial_log(f"[Serial] Prefix='{prefix}', Value='{value_str}'")
+                else:
+                    # 3) prefix 없는 순수 숫자 데이터
+                    value_str = data.replace(",", ".")
+
+            raw_value = float(value_str)
 
             # 유효성 검증: 비정상적으로 큰 값 필터
             if abs(raw_value) > 99999:
                 self._serial_log(f"[Serial] Out of range skipped: {raw_value}")
                 return None
 
-            # 센서 원시값 → 실제 측정값 변환 (÷1000)
-            value = raw_value / 1000.0
-            self._serial_log(f"[Serial] Raw={raw_value} -> Converted={value:.3f}")
-            return value
+            self._serial_log(f"[Serial] Parsed value={raw_value:.6f}")
+            return raw_value
         except queue.Empty:
             return None
         except ValueError:
             self._serial_log(f"[Serial] Parse error skipped: {data!r}")
             return None
-        except queue.Empty:
-            return None
-        except ValueError:
-            self._serial_log(f"[Serial] Parse error skipped: {data!r}")
-            return None
-
-        # 유효성 검증: 비정상적으로 큰 값 필터
-        if abs(raw_value) > 99999:
-            self._serial_log(f"[Serial] Out of range skipped: {raw_value}")
-            return None
-
-        # 센서 원시값 → 실제 측정값 변환 (÷1000)
-        value = raw_value / 1000.0
-        self._serial_log(f"[Serial] Raw={raw_value} -> Converted={value:.3f}")
-        return value
 
     def send_command(self, cmd: str):
         """명령 전송"""
@@ -1600,10 +1614,10 @@ class MiniasApp:
         )
         self.btn_start.pack(side=tk.LEFT, padx=5)
 
-        self.btn_pause = ttk.Button(
-            btn_frame, text="PAUSE", command=self._on_pause, width=12
+        self.btn_stop = ttk.Button(
+            btn_frame, text="STOP", command=self._on_stop, width=12
         )
-        self.btn_pause.pack(side=tk.LEFT, padx=5)
+        # STOP 버튼은 테스트 시작 시 표시됨 (초기에는 숨김)
 
         self.btn_print = ttk.Button(
             btn_frame, text="Save PDF", command=self._on_print_certificate
@@ -1864,7 +1878,9 @@ class MiniasApp:
         # 테스트 시작
         self.is_testing = True
         self.is_paused = False
-        self.btn_start.config(state="disabled")
+        # Start 버튼 → PAUSE로 변경, STOP 버튼 표시
+        self.btn_start.config(text="PAUSE", command=self._on_pause)
+        self.btn_stop.pack(side=tk.LEFT, padx=5, before=self.btn_print)
         self.var_status.set(
             f"Testing... Axis {self.current_axis}, Cycle {self.current_cycle}"
         )
@@ -2071,7 +2087,7 @@ class MiniasApp:
     def _complete_test(self):
         """테스트 완료 처리"""
         self.is_testing = False
-        self.btn_start.config(state="normal")
+        self._reset_buttons()
 
         # 전체 결과 계산
         all_sigmas = [ar.sigma for ar in self.axis_results]
@@ -2165,17 +2181,22 @@ class MiniasApp:
         # 시리얼 연결 해제
         self.serial.disconnect()
 
+    def _reset_buttons(self):
+        """버튼 상태 초기화 — Start 복원, STOP 숨김"""
+        self.btn_start.config(text="Start", command=self._on_start, state="normal")
+        self.btn_stop.pack_forget()
+
     def _on_pause(self):
-        """일시 정지/재개"""
+        """일시 정지/재개 — Start 버튼이 PAUSE/RESUME으로 토글"""
         if not self.is_testing:
             return
 
         self.is_paused = not self.is_paused
         if self.is_paused:
-            self.btn_pause.config(text="RESUME")
+            self.btn_start.config(text="RESUME")
             self.var_status.set("PAUSED")
         else:
-            self.btn_pause.config(text="PAUSE")
+            self.btn_start.config(text="PAUSE")
             self.var_status.set(f"Testing... Axis {self.current_axis}")
 
     def _on_stop(self):
@@ -2234,8 +2255,7 @@ class MiniasApp:
         else:
             self.var_status.set("Test STOPPED - No results to save")
 
-        self.btn_start.config(state="normal")
-        self.btn_pause.config(text="PAUSE")
+        self._reset_buttons()
         self.serial.disconnect()
 
     def _stop_and_save_current(self):
@@ -2277,8 +2297,7 @@ class MiniasApp:
         if self.axis_results:
             self._complete_test()
 
-        self.btn_start.config(state="normal")
-        self.btn_pause.config(text="PAUSE")
+        self._reset_buttons()
         self.serial.disconnect()
 
     def _on_print_certificate(self):
