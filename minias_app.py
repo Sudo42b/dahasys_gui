@@ -1617,8 +1617,7 @@ class MiniasApp:
         self.btn_stop = ttk.Button(
             btn_frame, text="STOP", command=self._on_stop, width=12
         )
-        # STOP 버튼은 테스트 시작 시 표시됨 (초기에는 숨김)
-
+        self.btn_stop.pack(side=tk.LEFT, padx=5)
         self.btn_print = ttk.Button(
             btn_frame, text="Save PDF", command=self._on_print_certificate
         )
@@ -1878,9 +1877,8 @@ class MiniasApp:
         # 테스트 시작
         self.is_testing = True
         self.is_paused = False
-        # Start 버튼 → PAUSE로 변경, STOP 버튼 표시
+        # Start 버튼 → PAUSE로 변경
         self.btn_start.config(text="PAUSE", command=self._on_pause)
-        self.btn_stop.pack(side=tk.LEFT, padx=5, before=self.btn_print)
         self.var_status.set(
             f"Testing... Axis {self.current_axis}, Cycle {self.current_cycle}"
         )
@@ -2182,9 +2180,8 @@ class MiniasApp:
         self.serial.disconnect()
 
     def _reset_buttons(self):
-        """버튼 상태 초기화 — Start 복원, STOP 숨김"""
+        """버튼 상태 초기화 — Start 복원"""
         self.btn_start.config(text="Start", command=self._on_start, state="normal")
-        self.btn_stop.pack_forget()
 
     def _on_pause(self):
         """일시 정지/재개 — Start 버튼이 PAUSE/RESUME으로 토글"""
