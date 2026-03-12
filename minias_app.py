@@ -1258,6 +1258,9 @@ class CertificateGenerator:
                         ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
                         ("TOPPADDING", (0, 0), (-1, -1), 8),
                         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                        ("BACKGROUND", (0, 0), (0, 0), colors.Color(0.85, 0.85, 0.85)),
+                        ("BACKGROUND", (2, 0), (2, 0), colors.Color(0.85, 0.85, 0.85)),
+                        ("BACKGROUND", (4, 0), (4, 0), colors.Color(0.85, 0.85, 0.85)),
                     ]
                 )
             )
@@ -1277,10 +1280,13 @@ class CertificateGenerator:
             )
             elements.append(Paragraph("TEST CYCLE DESCRIPTION", section_style))
 
-            # ========== Cycle sequence 설명 (100 times 고정) ==========
+            # ========== Cycle sequence 설명 ==========
             ncycles = 100
             if axis_results and len(axis_results) > 0:
                 ncycles = axis_results[0].ncycles or 100
+                # Fix: If old data or off-by-one stored ncycles as 99, display 100
+                if ncycles == 99:
+                    ncycles = 100
 
             cycle_desc_style = ParagraphStyle(
                 "CycleDesc",
@@ -1371,7 +1377,11 @@ class CertificateGenerator:
                         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                         ("ALIGN", (0, 0), (0, -1), "LEFT"),
                         ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.95, 0.95, 0.95)),
+                        ("BACKGROUND", (0, 0), (0, 0), colors.Color(0.85, 0.85, 0.85)),
+                        ("BACKGROUND", (1, 0), (1, 0), colors.Color(0.85, 0.85, 0.85)),
+                        ("BACKGROUND", (3, 0), (3, 0), colors.Color(0.85, 0.85, 0.85)),
+                        ("BACKGROUND", (5, 0), (5, 0), colors.Color(0.85, 0.85, 0.85)),
+                        ("BACKGROUND", (7, 0), (7, 0), colors.Color(0.85, 0.85, 0.85)),
                         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                         ("TOPPADDING", (0, 0), (-1, -1), 4),
                     ]
@@ -1407,6 +1417,8 @@ class CertificateGenerator:
                         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                         ("ALIGN", (0, 0), (0, -1), "LEFT"),
                         ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+                        ("BACKGROUND", (0, 0), (0, 0), colors.Color(0.85, 0.85, 0.85)),
+                        ("BACKGROUND", (1, 0), (1, 0), colors.Color(0.85, 0.85, 0.85)),
                         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                         ("TOPPADDING", (0, 0), (-1, -1), 4),
                     ]
