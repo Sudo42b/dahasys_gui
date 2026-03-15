@@ -1300,64 +1300,47 @@ class CertificateGenerator:
             axis_2sigmas = []
             for i in range(4):
                 if i < len(axis_results):
-                    axis_ranges.append(f"{axis_results[i].range_val:.3f}")
-                    axis_2sigmas.append(f"{2.0 * axis_results[i].sigma:.3f}")
+                    axis_ranges.append(f"{axis_results[i].range_val:.1f}")
+                    axis_2sigmas.append(f"{2.0 * axis_results[i].sigma:.1f}")
                 else:
                     axis_ranges.append("-")
 
             # Mean Range 계산
-            mean_range_val = f"{result.mean_range:.2f}"
+            mean_range_val = f"{result.mean_range:.1f}"
+
+            # micron 단위를 데이터 셀에 병합 (9열 → 5열)
+            def _fmt_micron(val: str) -> str:
+                """데이터 값에 micron 단위 병합 (빈 값이면 그대로 반환)"""
+                return f"{val} micron" if val and val != "-" else val
 
             axis_data = [
                 [
                     "Direction",
                     dir_labels[0],
-                    "",
                     dir_labels[1],
-                    "",
                     dir_labels[2],
-                    "",
                     dir_labels[3],
-                    "",
                 ],
                 [
                     f"R({ncycles})={result.worst_range_limit:.1f}Micron",
-                    axis_ranges[0],
-                    "micron",
-                    axis_ranges[1],
-                    "micron",
-                    axis_ranges[2],
-                    "micron",
-                    axis_ranges[3],
-                    "micron",
+                    _fmt_micron(axis_ranges[0]),
+                    _fmt_micron(axis_ranges[1]),
+                    _fmt_micron(axis_ranges[2]),
+                    _fmt_micron(axis_ranges[3]),
                 ],
                 [
                     f"R({ncycles})={result.worst_range_limit:.1f}Micron",
-                    mean_range_val,
+                    f"{mean_range_val} micron",
                     "",
-                    "",
-                    "",
-                    "",
-                    "micron",
                     "",
                     "",
                 ],
             ]
 
-            col_w = 20 * mm
+            col_w = 32 * mm
             axis_table = Table(
                 axis_data,
-                colWidths=[
-                    40 * mm,
-                    col_w,
-                    12 * mm,
-                    col_w,
-                    12 * mm,
-                    col_w,
-                    12 * mm,
-                    col_w,
-                    12 * mm,
-                ],
+                colWidths=[40 * mm, col_w, col_w, col_w, col_w],
             )
             axis_table.setStyle(
                 TableStyle(
@@ -1377,33 +1360,25 @@ class CertificateGenerator:
             elements.append(axis_table)
             elements.append(Spacer(1, 3 * mm))
 
-            # ========== Row 11-12: Un direct direction (Z-) ==========
+            # ========== Row 11-12: Un direct direction (Z-) — 5열 구조 ==========
             z_data = [
-                ["Un direct direction", "Z-", "", "", "", "Dia", "", "", ""],
-                ["", "Micron", "", "", "", "", "Micron", "", ""],
+                ["Un direct direction", "Z-", "", "Dia", ""],
+                ["", "Micron", "", "Micron", ""],
             ]
             z_table = Table(
                 z_data,
-                colWidths=[
-                    40 * mm,
-                    col_w,
-                    12 * mm,
-                    col_w,
-                    12 * mm,
-                    col_w,
-                    12 * mm,
-                    col_w,
-                    12 * mm,
-                ],
+                colWidths=[40 * mm, col_w, col_w, col_w, col_w],
             )
             z_table.setStyle(
                 TableStyle(
                     [
                         ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
                         ("FONTSIZE", (0, 0), (-1, -1), 9),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                         ("ALIGN", (0, 0), (0, -1), "LEFT"),
                         ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.95, 0.95, 0.95)),
                         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                         ("TOPPADDING", (0, 0), (-1, -1), 4),
                     ]
@@ -2055,8 +2030,8 @@ class MiniasApp:
                 item,
                 values=(
                     str(axis),
-                    f"{cur_range:.3f}",
-                    f"{two_sigma:.3f}",
+                    f"{cur_range:.1f}",
+                    f"{two_sigma:.1f}",
                     f"{cycle}/{ncycles}",
                     "",
                     "",
@@ -2073,8 +2048,8 @@ class MiniasApp:
                 item,
                 values=(
                     str(axis),
-                    f"{range_val:.6f}",
-                    f"{sigma:.6f}",
+                    f"{range_val:.1f}",
+                    f"{sigma:.1f}",
                     result,
                     "",
                     "",
@@ -2116,8 +2091,8 @@ class MiniasApp:
                 children[4],
                 values=(
                     "Mean",
-                    f"{mean_range:.6f}",
-                    f"{mean_sigma:.6f}",
+                    f"{mean_range:.1f}",
+                    f"{mean_sigma:.1f}",
                     "",
                     "",
                     "",
@@ -2129,8 +2104,8 @@ class MiniasApp:
                 children[5],
                 values=(
                     "Worst",
-                    f"{worst_range:.6f}",
-                    f"{worst_sigma:.6f}",
+                    f"{worst_range:.1f}",
+                    f"{worst_sigma:.1f}",
                     overall_result,
                     "",
                     "",
@@ -2506,8 +2481,8 @@ class MiniasApp:
                     item,
                     values=(
                         str(axis_num),
-                        f"{ar.range_val:.6f}",
-                        f"{ar.sigma:.6f}",
+                        f"{ar.range_val:.1f}",
+                        f"{ar.sigma:.1f}",
                         ar.result,
                         "",
                         "",
@@ -2521,8 +2496,8 @@ class MiniasApp:
                 children[4],
                 values=(
                     "Mean",
-                    f"{result.mean_range:.6f}",
-                    f"{result.mean_sigma:.6f}",
+                    f"{result.mean_range:.1f}",
+                    f"{result.mean_sigma:.1f}",
                     "",
                     "",
                     "",
@@ -2533,8 +2508,8 @@ class MiniasApp:
                 children[5],
                 values=(
                     "Worst",
-                    f"{result.worst_range:.6f}",
-                    f"{result.worst_sigma:.6f}",
+                    f"{result.worst_range:.1f}",
+                    f"{result.worst_sigma:.1f}",
                     result.result,
                     "",
                     "",
