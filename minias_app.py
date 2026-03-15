@@ -1089,9 +1089,9 @@ class ExcelExporter:
                 "Serial Number",
                 "Operator",
                 "Result",
-                "Mean Sigma",
+                "Mean 2SIGMA",
                 "Mean Range",
-                "Worst Sigma",
+                "Worst 2SIGMA",
                 "Worst Range",
             ]
             for col, header in enumerate(headers, 1):
@@ -1103,22 +1103,24 @@ class ExcelExporter:
             ws.cell(row=2, column=3, value=result.serial_number)
             ws.cell(row=2, column=4, value=result.operator)
             ws.cell(row=2, column=5, value=result.result)
-            ws.cell(row=2, column=6, value=f"{result.mean_sigma:.3f}")
-            ws.cell(row=2, column=7, value=f"{result.mean_range:.3f}")
-            ws.cell(row=2, column=8, value=f"{result.worst_sigma:.3f}")
-            ws.cell(row=2, column=9, value=f"{result.worst_range:.3f}")
+            ws.cell(row=2, column=6, value=f"{result.mean_sigma * 2000:.1f}")
+            ws.cell(row=2, column=7, value=f"{result.mean_range * 1000:.1f}")
+            ws.cell(row=2, column=8, value=f"{result.worst_sigma * 2000:.1f}")
+            ws.cell(row=2, column=9, value=f"{result.worst_range * 1000:.1f}")
 
             # 축별 결과
             ws2 = wb.create_sheet("Axis Results")
-            axis_headers = ["Axis", "Direction", "Sigma", "Range", "Result", "NCycles"]
+            axis_headers = ["Axis", "Direction", "2SIGMA", "Range", "Result", "NCycles"]
             for col, header in enumerate(axis_headers, 1):
                 ws2.cell(row=1, column=col, value=header)
 
             for row_idx, axis_result in enumerate(axis_results, 2):
                 ws2.cell(row=row_idx, column=1, value=axis_result.axis)
                 ws2.cell(row=row_idx, column=2, value=axis_result.direction)
-                ws2.cell(row=row_idx, column=3, value=f"{axis_result.sigma:.3f}")
-                ws2.cell(row=row_idx, column=4, value=f"{axis_result.range_val:.3f}")
+                ws2.cell(row=row_idx, column=3, value=f"{axis_result.sigma * 2000:.1f}")
+                ws2.cell(
+                    row=row_idx, column=4, value=f"{axis_result.range_val * 1000:.1f}"
+                )
                 ws2.cell(row=row_idx, column=5, value=axis_result.result)
                 ws2.cell(row=row_idx, column=6, value=axis_result.ncycles)
 
@@ -1256,6 +1258,9 @@ class CertificateGenerator:
                         ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
                         ("TOPPADDING", (0, 0), (-1, -1), 8),
                         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                        ("BACKGROUND", (0, 0), (0, 0), colors.Color(0.85, 0.85, 0.85)),
+                        ("BACKGROUND", (2, 0), (2, 0), colors.Color(0.85, 0.85, 0.85)),
+                        ("BACKGROUND", (4, 0), (4, 0), colors.Color(0.85, 0.85, 0.85)),
                     ]
                 )
             )
@@ -1275,10 +1280,13 @@ class CertificateGenerator:
             )
             elements.append(Paragraph("TEST CYCLE DESCRIPTION", section_style))
 
-            # ========== Cycle sequence 설명 (100 times 고정) ==========
+            # ========== Cycle sequence 설명 ==========
             ncycles = 100
             if axis_results and len(axis_results) > 0:
                 ncycles = axis_results[0].ncycles or 100
+                # Fix: If old data or off-by-one stored ncycles as 99, display 100
+                if ncycles == 99:
+                    ncycles = 100
 
             cycle_desc_style = ParagraphStyle(
                 "CycleDesc",
@@ -1304,6 +1312,7 @@ class CertificateGenerator:
                     axis_2sigmas.append(f"{2.0 * axis_results[i].sigma:.1f}")
                 else:
                     axis_ranges.append("-")
+                    axis_2sigmas.append("-")
 
             # Mean Range 계산
             mean_range_val = f"{result.mean_range:.1f}"
@@ -1351,7 +1360,11 @@ class CertificateGenerator:
                         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                         ("ALIGN", (0, 0), (0, -1), "LEFT"),
                         ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.95, 0.95, 0.95)),
+                        ("BACKGROUND", (0, 0), (0, 0), colors.Color(0.85, 0.85, 0.85)),
+                        ("BACKGROUND", (1, 0), (1, 0), colors.Color(0.85, 0.85, 0.85)),
+                        ("BACKGROUND", (3, 0), (3, 0), colors.Color(0.85, 0.85, 0.85)),
+                        ("BACKGROUND", (5, 0), (5, 0), colors.Color(0.85, 0.85, 0.85)),
+                        ("BACKGROUND", (7, 0), (7, 0), colors.Color(0.85, 0.85, 0.85)),
                         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                         ("TOPPADDING", (0, 0), (-1, -1), 4),
                     ]
@@ -1634,11 +1647,19 @@ class MiniasApp:
         ttk.Label(input_frame, text="Code:").grid(
             row=0, column=2, sticky=tk.E, padx=5, pady=2
         )
-        self.combo_code = ttk.Combobox(
-            input_frame, textvariable=self.var_code, width=22
-        )
-        self.combo_code.grid(row=0, column=3, sticky=tk.W, padx=5, pady=2)
+        code_frame = ttk.Frame(input_frame)
+        code_frame.grid(row=0, column=3, sticky=tk.W, padx=5, pady=2)
+
+        self.combo_code = ttk.Combobox(code_frame, textvariable=self.var_code, width=15)
+        self.combo_code.pack(side=tk.LEFT)
         self.combo_code.bind("<<ComboboxSelected>>", self._on_code_selected)
+
+        ttk.Button(code_frame, text="+", width=2, command=self._on_add_code).pack(
+            side=tk.LEFT, padx=1
+        )
+        ttk.Button(code_frame, text="-", width=2, command=self._on_del_code).pack(
+            side=tk.LEFT, padx=1
+        )
 
         # Serial Number
         ttk.Label(input_frame, text="Serial Number:").grid(
@@ -1653,10 +1674,20 @@ class MiniasApp:
         ttk.Label(input_frame, text="Checked by:").grid(
             row=1, column=2, sticky=tk.E, padx=5, pady=2
         )
+        operator_frame = ttk.Frame(input_frame)
+        operator_frame.grid(row=1, column=3, sticky=tk.W, padx=5, pady=2)
+
         self.combo_operator = ttk.Combobox(
-            input_frame, textvariable=self.var_operator, width=22
+            operator_frame, textvariable=self.var_operator, width=15
         )
-        self.combo_operator.grid(row=1, column=3, sticky=tk.W, padx=5, pady=2)
+        self.combo_operator.pack(side=tk.LEFT)
+
+        ttk.Button(
+            operator_frame, text="+", width=2, command=self._on_add_operator
+        ).pack(side=tk.LEFT, padx=1)
+        ttk.Button(
+            operator_frame, text="-", width=2, command=self._on_del_operator
+        ).pack(side=tk.LEFT, padx=1)
 
         # ID 조회 프레임
         id_frame = ttk.Frame(input_frame)
@@ -1705,7 +1736,7 @@ class MiniasApp:
         ttk.Checkbutton(check_frame, text="Range", variable=self.var_check_range).pack(
             side=tk.LEFT
         )
-        ttk.Checkbutton(check_frame, text="Sigma", variable=self.var_check_sigma).pack(
+        ttk.Checkbutton(check_frame, text="2SIGMA", variable=self.var_check_sigma).pack(
             side=tk.LEFT
         )
 
@@ -1733,14 +1764,14 @@ class MiniasApp:
         grid_frame = ttk.Frame(self.root, padding="5")
         grid_frame.pack(fill=tk.BOTH, expand=True, padx=5)
 
-        columns = ("Axis", "Range", "Sigma", "Result", "2nd", "Result2", "Dir")
+        columns = ("Axis", "Range", "2SIGMA", "Result", "2nd", "Result2", "Dir")
         self.tree = ttk.Treeview(grid_frame, columns=columns, show="headings", height=8)
 
         # 컬럼 설정
         col_widths = {
             "Axis": 60,
             "Range": 100,
-            "Sigma": 100,
+            "2SIGMA": 100,
             "Result": 70,
             "2nd": 70,
             "Result2": 70,
@@ -1818,6 +1849,70 @@ class MiniasApp:
             if self.current_code_info:
                 self.var_probe_type.set(self.current_code_info.probe_type)
                 self.var_naxis.set(str(self.current_code_info.naxis))
+
+    def _on_add_code(self):
+        """새 코드 추가"""
+        from tkinter import simpledialog
+
+        code = simpledialog.askstring("Add Code", "Enter new code:")
+        if not code:
+            return
+        probe_type = simpledialog.askstring(
+            "Add Code", "Enter probe type for this code:"
+        )
+        if probe_type is None:
+            return
+
+        info = CodeInfo(code=code, probe_type=probe_type, naxis=4)
+        self.db.add_code(info)
+
+        codes = self.db.get_code_list()
+        self.combo_code["values"] = codes
+        self.var_code.set(code)
+        self._on_code_selected()
+
+    def _on_del_code(self):
+        """선택된 코드 삭제"""
+        code = self.var_code.get()
+        if not code:
+            return
+        if messagebox.askyesno("Delete Code", f"Delete code '{code}'?"):
+            self.db.delete_code(code)
+            codes = self.db.get_code_list()
+            self.combo_code["values"] = codes
+            if codes:
+                self.var_code.set(codes[0])
+                self._on_code_selected()
+            else:
+                self.var_code.set("")
+                self.var_probe_type.set("")
+
+    def _on_add_operator(self):
+        """새 작업자 추가"""
+        from tkinter import simpledialog
+
+        op = simpledialog.askstring("Add Operator", "Enter new operator name:")
+        if op:
+            self.db.add_operator(op)
+            ops = self.db.get_operators()
+            self.combo_operator["values"] = ops
+            self.var_operator.set(op)
+
+    def _on_del_operator(self):
+        """선택된 작업자 삭제"""
+        op = self.var_operator.get()
+        if not op:
+            return
+        if messagebox.askyesno("Delete Operator", f"Delete operator '{op}'?"):
+            cursor = self.db.conn.cursor()
+            cursor.execute("DELETE FROM OPERATORS WHERE OPERATOR = ?", (op,))
+            self.db.conn.commit()
+            ops = self.db.get_operators()
+            self.combo_operator["values"] = ops
+            if ops:
+                self.var_operator.set(ops[0])
+            else:
+                self.var_operator.set("")
 
     def _on_start(self):
         """테스트 시작"""
@@ -1944,10 +2039,8 @@ class MiniasApp:
                     value = self.serial.read_value(timeout=2.0)
 
                 if value is None:
-                    # 시뮬레이션 모드
-                    import random
-
-                    value = random.gauss(0, 0.001)
+                    time.sleep(0.1)
+                    continue
 
                 self.measurements[axis].append(value)
                 self.db.save_measure(axis, cycle, value)
@@ -1965,7 +2058,7 @@ class MiniasApp:
                     0,
                     lambda a=axis, c=cycle, v=value, r=cur_range, s=cur_sigma: (
                         self.var_status.set(
-                            f"Axis {a}, Cycle {c}/{ncycles} - Value: {v:.3f}"
+                            f"Axis {a}, Cycle {c}/{ncycles} - Value: {v * 1000:.1f}"
                         ),
                         self._update_grid_row_live(a, c, ncycles, v, r, s),
                     ),
@@ -2008,6 +2101,29 @@ class MiniasApp:
                 s=sigma,
                 res=axis_result: self._update_grid_row(a, r, s, res),
             )
+
+            # 축 완료 후 확인 (YES/NO)
+            event = threading.Event()
+            user_choice = [None]
+
+            def ask_next_axis():
+                ans = messagebox.askyesno(
+                    "Axis Completed",
+                    f"Axis {axis} completed.\nProceed to next axis?\n\n(YES = Next Axis, NO = Re-test current axis)",
+                )
+                user_choice[0] = ans
+                event.set()
+
+            self.root.after(0, ask_next_axis)
+            event.wait()
+
+            if user_choice[0]:
+                axis += 1
+            else:
+                # 재측정: 저장된 결과에서 현재 축 제거
+                self.axis_results = [ar for ar in self.axis_results if ar.axis != axis]
+                # while 루프 상단에서 measurements[axis] = [] 로 초기화됨
+                pass
 
         # 테스트 완료
         self.root.after(0, self._complete_test)
@@ -2514,6 +2630,7 @@ class MiniasApp:
                     "",
                     "",
                     "",
+                    "",
                 ),
             )
 
@@ -2634,9 +2751,11 @@ class LimitsDialog:
         self.dialog.grab_set()
 
         # 변수
-        self.var_mean_sigma = tk.StringVar(value=f"{self.limits.mean_sigma:.3f}")
-        self.var_mean_range = tk.StringVar(value=f"{self.limits.mean_range:.3f}")
-        self.var_worst_range = tk.StringVar(value=f"{self.limits.worst_range:.3f}")
+        self.var_mean_sigma = tk.StringVar(value=f"{self.limits.mean_sigma * 2000:.1f}")
+        self.var_mean_range = tk.StringVar(value=f"{self.limits.mean_range * 1000:.1f}")
+        self.var_worst_range = tk.StringVar(
+            value=f"{self.limits.worst_range * 1000:.1f}"
+        )
 
         # GUI
         frame = ttk.Frame(self.dialog, padding="10")
@@ -2646,7 +2765,7 @@ class LimitsDialog:
             row=0, column=0, columnspan=2, pady=10
         )
 
-        ttk.Label(frame, text="Mean Sigma Limit:").grid(
+        ttk.Label(frame, text="Mean 2SIGMA Limit:").grid(
             row=1, column=0, sticky=tk.E, pady=5
         )
         ttk.Entry(frame, textvariable=self.var_mean_sigma, width=15).grid(
@@ -2684,9 +2803,9 @@ class LimitsDialog:
         """저장"""
         try:
             self.limits.test_type = "ST"
-            self.limits.mean_sigma = float(self.var_mean_sigma.get())
-            self.limits.mean_range = float(self.var_mean_range.get())
-            self.limits.worst_range = float(self.var_worst_range.get())
+            self.limits.mean_sigma = float(self.var_mean_sigma.get()) / 2000.0
+            self.limits.mean_range = float(self.var_mean_range.get()) / 1000.0
+            self.limits.worst_range = float(self.var_worst_range.get()) / 1000.0
 
             self.db.save_limits(self.limits)
             messagebox.showinfo("Success", "Limits saved successfully")
