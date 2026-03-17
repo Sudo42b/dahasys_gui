@@ -23,9 +23,9 @@ Requirements for this refactoring round. Each maps to roadmap phases.
 
 ### Code Deduplication
 
-- [ ] **DEDUP-01**: Consolidate 4 duplicated `safe_get()` closures into a single utility function
+- [x] **DEDUP-01**: Consolidate 4 duplicated `safe_get()` closures into a single utility function
 - [ ] **DEDUP-02**: Deduplicate stop-and-save logic between `_on_stop()` and `_stop_and_save_current()`
-- [ ] **DEDUP-03**: Consolidate duplicated fallback port list and code info fallback patterns
+- [x] **DEDUP-03**: Consolidate duplicated fallback port list and code info fallback patterns
 
 ### Bug Fixes
 
@@ -50,7 +50,7 @@ Requirements for this refactoring round. Each maps to roadmap phases.
 ### Code Quality
 
 - [ ] **QUAL-01**: Centralize unit conversion logic (raw mm to microns to 2-sigma display) into utility functions
-- [ ] **QUAL-02**: Move inline imports (`time`, `re`) to module top-level where they belong
+- [x] **QUAL-02**: Move inline imports (`time`, `re`) to module top-level where they belong
 - [ ] **QUAL-03**: Replace manual INI parsing with proper `configparser` usage
 
 ## v2 Requirements
@@ -100,9 +100,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STRUCT-09 | Phase 3 | Complete |
 | STRUCT-10 | Phase 3 | Complete |
 | STRUCT-11 | Phase 3 | Complete |
-| DEDUP-01 | Phase 5 | Pending |
+| DEDUP-01 | Phase 5 | Complete |
 | DEDUP-02 | Phase 5 | Pending |
-| DEDUP-03 | Phase 5 | Pending |
+| DEDUP-03 | Phase 5 | Complete |
 | BUGF-01 | Phase 4 | Pending |
 | BUGF-02 | Phase 4 | Pending |
 | BUGF-03 | Phase 4 | Pending |
@@ -115,7 +115,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | METH-02 | Phase 6 | Pending |
 | METH-03 | Phase 6 | Pending |
 | QUAL-01 | Phase 5 | Pending |
-| QUAL-02 | Phase 5 | Pending |
+| QUAL-02 | Phase 5 | Complete |
 | QUAL-03 | Phase 5 | Pending |
 
 **Coverage:**
