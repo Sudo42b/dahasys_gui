@@ -134,8 +134,6 @@ class SerialCommunicator:
         - NULL/공백 등은 strip()으로 제거
         - 유효한 라인만 큐에 넣음
         """
-        import time as _time
-
         self._serial_log("[Serial] _read_loop started (CR-terminated protocol)")
 
         while self.running and self.serial and self.serial.is_open:
@@ -149,10 +147,10 @@ class SerialCommunicator:
                         self.data_queue.put(line)
                 else:
                     # 데이터 없으면 짧은 대기 (CPU 과부하 방지)
-                    _time.sleep(0.01)
+                    time.sleep(0.01)
             except Exception as e:
                 self._serial_log(f"[Serial ERROR] {e}")
-                _time.sleep(0.05)
+                time.sleep(0.05)
 
     def read_value(self, timeout: float = 1.0) -> Optional[float]:
         """측정값 읽기
@@ -160,10 +158,8 @@ class SerialCommunicator:
         장비 데이터 형식 (실측 확인):
           '01A-000.0018'  →  축 prefix '01A' + 측정값 '-000.0018'
           - 앞 2~3자: 축 번호(숫자) + 채널(영문자)
-          - 나머지: 부호 + 숫자값 (mm 단위)
+           - 나머지: 부호 + 숫자값 (mm 단위)
         """
-        import re
-
         try:
             data = self.data_queue.get(timeout=timeout)
 
@@ -217,8 +213,6 @@ class SerialCommunicator:
         if self.serial and self.serial.is_open:
             self.serial.reset_input_buffer()
         # 잠시 대기 후 다시 큐 비우기 (읽기 스레드가 방금 넣은 데이터 제거)
-        import time
-
         time.sleep(0.1)
         while not self.data_queue.empty():
             try:
