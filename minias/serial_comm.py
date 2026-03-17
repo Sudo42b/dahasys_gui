@@ -205,11 +205,6 @@ class SerialCommunicator:
             self._serial_log(f"[Serial] Parse error skipped: {data!r}")
             return None
 
-    def send_command(self, cmd: str):
-        """명령 전송"""
-        if self.serial and self.serial.is_open:
-            self.serial.write(cmd.encode("ascii"))
-
     def clear_buffer(self):
         """버퍼 초기화 - 큐와 시리얼 입력 버퍼 모두 비움"""
         # 큐 비우기

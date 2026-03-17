@@ -17,8 +17,8 @@ from minias.models import TestResult, AxisResult
 class ExcelExporter:
     """Excel 파일 출력"""
 
-    def __init__(self, template_path: str = None):
-        self.template_path = template_path
+    def __init__(self):
+        pass
 
     def export_result(
         self, result: TestResult, axis_results: List[AxisResult], output_path: str
