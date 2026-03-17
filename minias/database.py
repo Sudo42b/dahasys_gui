@@ -138,27 +138,6 @@ class MiniasDatabase:
             )
         """)
 
-        # EXCEL_SETUP 테이블
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS EXCEL_SETUP (
-                ID INTEGER PRIMARY KEY,
-                PROBE_TYPE VARCHAR(10),
-                CODE VARCHAR(10),
-                SERIAL_NUMBER VARCHAR(10),
-                OPERATOR VARCHAR(10),
-                MEAN_SIGMA VARCHAR(10),
-                MEAN_RANGE VARCHAR(10),
-                WORST_RANGE VARCHAR(10),
-                LIMIT_MEAN_RANGE VARCHAR(10),
-                LIMIT_WORST_RANGE VARCHAR(10),
-                RESULT VARCHAR(10),
-                ASSE1_SIGMA VARCHAR(10),
-                ASSE1_RANGE VARCHAR(10),
-                ASSE1_START VARCHAR(10),
-                DELTA_SECOND SMALLINT DEFAULT 0
-            )
-        """)
-
         self.conn.commit()
 
         # 기본 데이터 삽입
@@ -583,26 +562,6 @@ class MiniasDatabase:
             (id_col, axis, cycle, value, second_test, worst_datum),
         )
         self.conn.commit()
-
-    def get_samples(self, id_col: int, axis: int = None) -> List[Tuple]:
-        """샘플 데이터 조회"""
-        cursor = self.conn.cursor()
-        if axis:
-            cursor.execute(
-                """
-                SELECT * FROM TEST_SAMPLES
-                WHERE ID_COL = ? AND AXIS = ? ORDER BY CYCLE
-            """,
-                (id_col, axis),
-            )
-        else:
-            cursor.execute(
-                """
-                SELECT * FROM TEST_SAMPLES WHERE ID_COL = ? ORDER BY AXIS, CYCLE
-            """,
-                (id_col,),
-            )
-        return cursor.fetchall()
 
     # --- MEASURES (현재 측정값) ---
     def clear_measures(self):
