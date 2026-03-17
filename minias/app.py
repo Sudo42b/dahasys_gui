@@ -988,24 +988,24 @@ class MiniasApp:
             result = self.db.get_test_result(self.current_id)
             axis_results = self.db.get_axis_results(self.current_id)
 
-        if not result:
-            messagebox.showerror("Error", "Test result not found in database")
-            return
+            if not result:
+                messagebox.showerror("Error", "Test result not found in database")
+                return
 
-        if not axis_results:
-            messagebox.showerror(
-                "Error",
-                f"No axis results found for test ID {self.current_id}.\n"
-                "The test may not have completed properly.",
-            )
-            return
+            if not axis_results:
+                messagebox.showerror(
+                    "Error",
+                    f"No axis results found for test ID {self.current_id}.\n"
+                    "The test may not have completed properly.",
+                )
+                return
 
-        # 코드 정보 가져오기 (current_code_info가 없으면 DB에서 조회)
-        code_info = self.current_code_info
-        if code_info is None and result.code:
-            code_info = self.db.get_code_info(result.code)
-        if code_info is None:
-            code_info = CodeInfo(code=result.code, probe_type="")
+            # 코드 정보 가져오기 (current_code_info가 없으면 DB에서 조회)
+            code_info = self.current_code_info
+            if code_info is None and result.code:
+                code_info = self.db.get_code_info(result.code)
+            if code_info is None:
+                code_info = CodeInfo(code=result.code, probe_type="")
 
             try:
                 success = self.cert_generator.generate(
@@ -1047,8 +1047,8 @@ class MiniasApp:
             self.var_status.set("Test result deleted.")
 
             # 결과 테이블 클리어
-            for item in self.tree_results.get_children():
-                self.tree_results.delete(item)
+            for item in self.tree.get_children():
+                self.tree.delete(item)
 
             # ID 목록 새로고침
             self._refresh_id_list()
