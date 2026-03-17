@@ -8,6 +8,9 @@ from minias.models import LimitInfo
 from minias.database import MiniasDatabase
 from minias.serial_comm import SerialCommunicator
 
+# 시리얼 포트 감지 실패 시 기본 포트 목록
+FALLBACK_PORTS = ["COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8"]
+
 
 # =============================================================================
 # 한계값 설정 대화상자
@@ -134,16 +137,7 @@ class SettingsDialog:
         # 사용 가능한 포트 목록 가져오기
         available_ports = SerialCommunicator.get_available_ports()
         if not available_ports:
-            available_ports = [
-                "COM1",
-                "COM2",
-                "COM3",
-                "COM4",
-                "COM5",
-                "COM6",
-                "COM7",
-                "COM8",
-            ]
+            available_ports = FALLBACK_PORTS
 
         self.combo_port = ttk.Combobox(
             frame, textvariable=self.var_port, width=15, values=available_ports
@@ -235,7 +229,7 @@ class SettingsDialog:
         self.port_details = SerialCommunicator.get_available_ports_detail()
         if self.port_details:
             return [p["device"] for p in self.port_details]
-        return ["COM1", "COM2", "COM3", "COM4"]
+        return FALLBACK_PORTS[:4]
 
     def _update_port_tree(self):
         """포트 상세 Treeview 업데이트"""
@@ -282,16 +276,7 @@ class SettingsDialog:
         """포트 목록 새로고침"""
         available_ports = SerialCommunicator.get_available_ports()
         if not available_ports:
-            available_ports = [
-                "COM1",
-                "COM2",
-                "COM3",
-                "COM4",
-                "COM5",
-                "COM6",
-                "COM7",
-                "COM8",
-            ]
+            available_ports = FALLBACK_PORTS
         self.combo_port["values"] = available_ports
         self._update_port_tree()
 
