@@ -3,22 +3,22 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 3
-current_plan: Not started
-status: unknown
-last_updated: "2026-03-17T04:12:14.914Z"
+current_plan: 2 of 2
+status: phase-complete
+last_updated: "2026-03-17T04:41:11.931Z"
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  completed_phases: 3
+  total_plans: 6
+  completed_plans: 6
 ---
 
 # Project State: MINIAS Refactor
 
 ## Status
 **Current Phase:** 3
-**Current Plan:** Not started
-**Overall Progress:** ████░░░░░░ ~25%
+**Current Plan:** 2 of 2 (Phase complete)
+**Overall Progress:** █████░░░░░ ~50%
 
 ## Session Log
 - 2025-03-17: Phase 1 context gathered → `.planning/phases/01-package-scaffold-leaf-models/01-CONTEXT.md`
@@ -26,19 +26,20 @@ progress:
 - 2026-03-17: Phase 2 Plan 01 executed — SerialCommunicator + TestCalculator extracted to minias/
 - 2026-03-17: Phase 2 Plan 02 executed — MiniasDatabase extracted to minias/database.py
 - 2026-03-17: Phase 2 Plan 03 executed — ExcelExporter + CertificateGenerator extracted; Phase 2 complete
-- Resume: Phase 3 planning (Dialogs, App Shell & Entry Point)
+- 2026-03-17: Phase 3 Plan 01 executed — LimitsDialog + SettingsDialog extracted to minias/dialogs.py
+- 2026-03-17: Phase 3 Plan 02 executed — MiniasApp moved to minias/app.py, entry point updated, monolith dissolved; Phase 3 complete
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2025-03-17)
 **Core value:** Navigable, maintainable codebase — identical behavior and appearance
-**Current focus:** Phase 3 — Dialogs, App Shell & Entry Point
+**Current focus:** Phases 1-3 complete (structural extraction done). Next: Phase 4 — Bug Fixes & Dead Code Removal
 
 ## Phase Status
 | Phase | Name | Status | Plans |
 |-------|------|--------|-------|
 | 1 | Package Scaffold & Leaf Models | Complete | 1/1 |
 | 2 | Service Module Extraction | Complete | 3/3 |
-| 3 | Dialogs, App Shell & Entry Point | Pending | 0/0 |
+| 3 | Dialogs, App Shell & Entry Point | Complete | 2/2 |
 | 4 | Bug Fixes & Dead Code Removal | Pending | 0/0 |
 | 5 | Deduplication & Code Quality | Pending | 0/0 |
 | 6 | Method Decomposition | Pending | 0/0 |
@@ -84,6 +85,8 @@ Critical information for any agent picking up this project:
 | 02-01 | Kept inline imports inside methods during extraction | Two-pass discipline: no refactoring during extraction |
 | 02-02 | Removed `import sqlite3` from monolith | Only used within MiniasDatabase class, no other references in remaining code |
 | 02-03 | Changed CertificateGenerator.script_dir to os.getcwd() | Module relocated to minias/ — __file__-relative paths would break resource resolution |
+| 03-02 | Added hatchling build-system to pyproject.toml | uv sync skips entry point installation without [build-system] — required for `uv run minias` |
+| 03-02 | Kept minias_app.py as compatibility shim | Preserves backward compat for `python minias_app.py` direct execution |
 
 ## Performance Metrics
 
@@ -93,6 +96,8 @@ Critical information for any agent picking up this project:
 | 02-01 | 7min | 2 | 4 |
 | 02-02 | 6min | 2 | 3 |
 | 02-03 | 8min | 2 | 4 |
+| 03-02 | 8min | 2 | 5 |
 
 ---
-*Last updated: 2026-03-17 after Phase 2 Plan 03 execution — Phase 2 complete*
+*Last updated: 2026-03-17 after Phase 3 Plan 02 execution — Phase 3 complete, monolith dissolved*
+

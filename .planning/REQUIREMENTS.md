@@ -17,9 +17,9 @@ Requirements for this refactoring round. Each maps to roadmap phases.
 - [x] **STRUCT-06**: Extract ExcelExporter class into `minias/excel_export.py`
 - [x] **STRUCT-07**: Extract CertificateGenerator class into `minias/certificate.py`
 - [ ] **STRUCT-08**: Extract LimitsDialog and SettingsDialog into `minias/dialogs.py`
-- [ ] **STRUCT-09**: Move remaining MiniasApp class and main() into `minias/app.py`
-- [ ] **STRUCT-10**: Update pyproject.toml scripts entry to `minias.app:main`
-- [ ] **STRUCT-11**: App launches and runs identically via `uv run minias` after restructure
+- [x] **STRUCT-09**: Move remaining MiniasApp class and main() into `minias/app.py`
+- [x] **STRUCT-10**: Update pyproject.toml scripts entry to `minias.app:main`
+- [x] **STRUCT-11**: App launches and runs identically via `uv run minias` after restructure
 
 ### Code Deduplication
 
@@ -97,9 +97,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STRUCT-06 | Phase 2 | Complete |
 | STRUCT-07 | Phase 2 | Complete |
 | STRUCT-08 | Phase 3 | Pending |
-| STRUCT-09 | Phase 3 | Pending |
-| STRUCT-10 | Phase 3 | Pending |
-| STRUCT-11 | Phase 3 | Pending |
+| STRUCT-09 | Phase 3 | Complete |
+| STRUCT-10 | Phase 3 | Complete |
+| STRUCT-11 | Phase 3 | Complete |
 | DEDUP-01 | Phase 5 | Pending |
 | DEDUP-02 | Phase 5 | Pending |
 | DEDUP-03 | Phase 5 | Pending |
