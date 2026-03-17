@@ -8,6 +8,8 @@ import threading
 import queue
 import os
 import time
+import configparser
+import stat
 
 # 로컬 모듈
 from minias.models import (
@@ -87,26 +89,59 @@ class MiniasApp:
         # 초기 데이터 로드
         self._load_initial_data()
 
+    @staticmethod
+    def _parse_vb6_ini(ini_path: str) -> configparser.ConfigParser:
+        """VB6 스타일 INI 파일([Key]=Value)을 configparser로 파싱
+
+        VB6 INI 형식은 [KeyName]=Value 이므로 표준 configparser와 호환되지 않는다.
+        '[' ']'를 제거하고 합성 섹션 [MINIAS] 아래에 키-값 쌍으로 매핑한다.
+        """
+        cp = configparser.ConfigParser()
+        cp.optionxform = str  # 키 이름 대소문자 보존
+        section = "MINIAS"
+        cp.add_section(section)
+
+        if os.path.exists(ini_path):
+            with open(ini_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if "=" in line:
+                        key, value = line.split("=", 1)
+                        key = key.strip("[]").strip()
+                        cp.set(section, key, value.strip())
+
+        return cp
+
+    @staticmethod
+    def _write_vb6_ini(cp: configparser.ConfigParser, ini_path: str):
+        """configparser 내용을 VB6 스타일 INI 형식으로 저장"""
+        section = "MINIAS"
+        with open(ini_path, "w") as f:
+            for key in cp.options(section):
+                f.write(f"[{key}]={cp.get(section, key)}\n")
+
     def _load_config(self) -> Dict:
-        """INI 설정 파일 로드"""
+        """INI 설정 파일 로드 (configparser 기반)"""
         config = {"port": "COM1", "baudrate": 9600, "working_dir": os.getcwd()}
 
-        ini_path = os.path.join(os.path.dirname(__file__), "MINIAS.INI")
+        ini_path = "MINIAS.INI"
         if os.path.exists(ini_path):
             try:
-                with open(ini_path, "r") as f:
-                    for line in f:
-                        if "=" in line:
-                            key, value = line.strip().split("=", 1)
-                            key = key.strip("[]")
-                            if "Communication Port" in key and "Settings" not in key:
-                                config["port"] = f"COM{value.strip()}"
-                            elif "Settings Communication Port" in key:
-                                parts = value.strip().split(",")
-                                if parts:
-                                    config["baudrate"] = int(parts[0])
-                            elif "Working Directory" in key:
-                                config["working_dir"] = value.strip()
+                cp = self._parse_vb6_ini(ini_path)
+                section = "MINIAS"
+
+                if cp.has_option(section, "Communication Port"):
+                    port_num = cp.get(section, "Communication Port")
+                    config["port"] = f"COM{port_num}"
+
+                if cp.has_option(section, "Settings Communication Port"):
+                    settings_val = cp.get(section, "Settings Communication Port")
+                    parts = settings_val.split(",")
+                    if parts:
+                        config["baudrate"] = int(parts[0])
+
+                if cp.has_option(section, "Working Directory"):
+                    config["working_dir"] = cp.get(section, "Working Directory")
             except Exception as e:
                 print(f"Error loading config: {e}")
 
@@ -121,8 +156,8 @@ class MiniasApp:
         return config
 
     def _save_config(self):
-        """INI 설정 파일 저장"""
-        ini_path = os.path.join(os.path.dirname(__file__), "MINIAS.INI")
+        """INI 설정 파일 저장 (configparser 기반)"""
+        ini_path = "MINIAS.INI"
         # 포트 번호 추출 (COM3 -> 3, 알 수 없는 형식이면 그대로 저장)
         port_str = self.config.get("port", "COM1")
         if port_str.upper().startswith("COM"):
@@ -135,34 +170,22 @@ class MiniasApp:
 
         try:
             # 읽기 전용 파일인 경우 쓰기 가능하도록 변경
-            import stat
-
             if os.path.exists(ini_path):
                 file_stat = os.stat(ini_path)
                 if not (file_stat.st_mode & stat.S_IWRITE):
                     os.chmod(ini_path, file_stat.st_mode | stat.S_IWRITE)
 
-            # 기존 INI 파일의 추가 항목들을 보존
-            extra_lines = []
-            known_keys = {
-                "Communication Port",
-                "Settings Communication Port",
-                "Working Directory",
-            }
-            if os.path.exists(ini_path):
-                with open(ini_path, "r") as f:
-                    for line in f:
-                        if "=" in line:
-                            key = line.strip().split("=", 1)[0].strip("[]")
-                            if key not in known_keys:
-                                extra_lines.append(line.rstrip())
+            # 기존 INI 파일을 configparser로 로드 (추가 항목 보존)
+            cp = self._parse_vb6_ini(ini_path)
+            section = "MINIAS"
 
-            with open(ini_path, "w") as f:
-                f.write(f"[Communication Port]={port_num}\n")
-                f.write(f"[Settings Communication Port]={baudrate},N,8,1\n")
-                f.write(f"[Working Directory]={working_dir}\n")
-                for extra in extra_lines:
-                    f.write(f"{extra}\n")
+            # 알려진 키 갱신
+            cp.set(section, "Communication Port", str(port_num))
+            cp.set(section, "Settings Communication Port", f"{baudrate},N,8,1")
+            cp.set(section, "Working Directory", working_dir)
+
+            # VB6 형식으로 저장
+            self._write_vb6_ini(cp, ini_path)
             print(f"Config saved: port={port_str}, baudrate={baudrate}")
         except Exception as e:
             print(f"Error saving config: {e}")
