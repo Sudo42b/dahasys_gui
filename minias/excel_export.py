@@ -11,7 +11,7 @@ except ImportError:
     EXCEL_AVAILABLE = False
     print("Warning: openpyxl not installed. Excel export disabled.")
 
-from minias.models import TestResult, AxisResult
+from minias.models import TestResult, AxisResult, format_microns, format_2sigma_microns
 
 
 class ExcelExporter:
@@ -54,10 +54,10 @@ class ExcelExporter:
             ws.cell(row=2, column=3, value=result.serial_number)
             ws.cell(row=2, column=4, value=result.operator)
             ws.cell(row=2, column=5, value=result.result)
-            ws.cell(row=2, column=6, value=f"{result.mean_sigma * 2000:.1f}")
-            ws.cell(row=2, column=7, value=f"{result.mean_range * 1000:.1f}")
-            ws.cell(row=2, column=8, value=f"{result.worst_sigma * 2000:.1f}")
-            ws.cell(row=2, column=9, value=f"{result.worst_range * 1000:.1f}")
+            ws.cell(row=2, column=6, value=format_2sigma_microns(result.mean_sigma))
+            ws.cell(row=2, column=7, value=format_microns(result.mean_range))
+            ws.cell(row=2, column=8, value=format_2sigma_microns(result.worst_sigma))
+            ws.cell(row=2, column=9, value=format_microns(result.worst_range))
 
             # 축별 결과
             ws2 = wb.create_sheet("Axis Results")
@@ -68,9 +68,13 @@ class ExcelExporter:
             for row_idx, axis_result in enumerate(axis_results, 2):
                 ws2.cell(row=row_idx, column=1, value=axis_result.axis)
                 ws2.cell(row=row_idx, column=2, value=axis_result.direction)
-                ws2.cell(row=row_idx, column=3, value=f"{axis_result.sigma * 2000:.1f}")
                 ws2.cell(
-                    row=row_idx, column=4, value=f"{axis_result.range_val * 1000:.1f}"
+                    row=row_idx,
+                    column=3,
+                    value=format_2sigma_microns(axis_result.sigma),
+                )
+                ws2.cell(
+                    row=row_idx, column=4, value=format_microns(axis_result.range_val)
                 )
                 ws2.cell(row=row_idx, column=5, value=axis_result.result)
                 ws2.cell(row=row_idx, column=6, value=axis_result.ncycles)

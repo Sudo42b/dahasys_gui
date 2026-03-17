@@ -4,7 +4,12 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import List, Optional, Dict
 
-from minias.models import LimitInfo
+from minias.models import (
+    LimitInfo,
+    format_microns,
+    format_2sigma_microns,
+    microns_to_mm,
+)
 from minias.database import MiniasDatabase
 from minias.serial_comm import SerialCommunicator
 
@@ -32,10 +37,12 @@ class LimitsDialog:
         self.dialog.grab_set()
 
         # 변수
-        self.var_mean_sigma = tk.StringVar(value=f"{self.limits.mean_sigma * 2000:.1f}")
-        self.var_mean_range = tk.StringVar(value=f"{self.limits.mean_range * 1000:.1f}")
+        self.var_mean_sigma = tk.StringVar(
+            value=format_2sigma_microns(self.limits.mean_sigma)
+        )
+        self.var_mean_range = tk.StringVar(value=format_microns(self.limits.mean_range))
         self.var_worst_range = tk.StringVar(
-            value=f"{self.limits.worst_range * 1000:.1f}"
+            value=format_microns(self.limits.worst_range)
         )
 
         # GUI
@@ -84,9 +91,11 @@ class LimitsDialog:
         """저장"""
         try:
             self.limits.test_type = "ST"
-            self.limits.mean_sigma = float(self.var_mean_sigma.get()) / 2000.0
-            self.limits.mean_range = float(self.var_mean_range.get()) / 1000.0
-            self.limits.worst_range = float(self.var_worst_range.get()) / 1000.0
+            self.limits.mean_sigma = (
+                microns_to_mm(float(self.var_mean_sigma.get())) / 2.0
+            )
+            self.limits.mean_range = microns_to_mm(float(self.var_mean_range.get()))
+            self.limits.worst_range = microns_to_mm(float(self.var_worst_range.get()))
 
             self.db.save_limits(self.limits)
             messagebox.showinfo("Success", "Limits saved successfully")

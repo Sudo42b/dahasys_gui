@@ -7,9 +7,18 @@ from typing import List, Optional, Dict, Tuple
 import threading
 import queue
 import os
+import time
 
 # 로컬 모듈
-from minias.models import TestResult, AxisResult, CodeInfo, SetupInfo, LimitInfo
+from minias.models import (
+    TestResult,
+    AxisResult,
+    CodeInfo,
+    SetupInfo,
+    LimitInfo,
+    mm_to_microns,
+    format_microns,
+)
 from minias.serial_comm import SerialCommunicator, SERIAL_AVAILABLE
 from minias.calculator import TestCalculator
 from minias.database import MiniasDatabase
@@ -566,7 +575,6 @@ class MiniasApp:
         - 100사이클 완료 시 자동으로 다음 축으로 넘어가지 않음 (사용자 확인 대기)
         - NG 시 해당 축 재측정
         """
-        import time
 
         naxis = int(self.var_naxis.get())
         ncycles = int(self.var_ncycles.get())
@@ -625,7 +633,7 @@ class MiniasApp:
                     0,
                     lambda a=axis, c=cycle, v=value, r=cur_range, s=cur_sigma: (
                         self.var_status.set(
-                            f"Axis {a}, Cycle {c}/{ncycles} - Value: {v * 1000:.1f}"
+                            f"Axis {a}, Cycle {c}/{ncycles} - Value: {format_microns(v)}"
                         ),
                         self._update_grid_row_live(a, c, ncycles, v, r, s),
                     ),
@@ -853,29 +861,16 @@ class MiniasApp:
             self.btn_start.config(text="PAUSE")
             self.var_status.set(f"Testing... Axis {self.current_axis}")
 
-    def _on_stop(self):
-        """테스트 중단 — 현재까지의 결과를 저장하고 테스트 종료"""
-        if not self.is_testing:
-            return
+    def _finalize_incomplete_axes(self):
+        """미완료 축의 결과를 계산하여 axis_results에 추가 (공통 헬퍼)
 
-        confirm = messagebox.askyesno(
-            "Stop Test",
-            "Stop the current test?\nResults measured so far will be saved.",
-        )
-        if not confirm:
-            return
-
-        # 테스트 중단
-        self.is_testing = False
-        self.is_paused = False
-
-        # 현재까지 완료된 축의 결과 계산
-        # (measurements에 데이터가 있는 축만 결과 생성)
+        measurements에 데이터가 있지만 axis_results에 아직 없는 축에 대해
+        sigma/range를 계산하고 판정 결과를 생성한다.
+        _on_stop()과 _stop_and_save_current()에서 공통으로 사용.
+        """
         for axis, values in self.measurements.items():
             if not values:
                 continue
-
-            # 이미 axis_results에 있는 축은 건너뜀
             if any(ar.axis == axis for ar in self.axis_results):
                 continue
 
@@ -901,6 +896,25 @@ class MiniasApp:
                 direction=str(axis),
             )
             self.axis_results.append(ar)
+
+    def _on_stop(self):
+        """테스트 중단 — 현재까지의 결과를 저장하고 테스트 종료"""
+        if not self.is_testing:
+            return
+
+        confirm = messagebox.askyesno(
+            "Stop Test",
+            "Stop the current test?\nResults measured so far will be saved.",
+        )
+        if not confirm:
+            return
+
+        # 테스트 중단
+        self.is_testing = False
+        self.is_paused = False
+
+        # 현재까지 완료된 축의 결과 계산
+        self._finalize_incomplete_axes()
 
         # 결과가 있으면 저장
         if self.axis_results:
@@ -919,34 +933,7 @@ class MiniasApp:
         self.is_paused = False
 
         # 현재까지 완료된 축 결과 계산
-        for axis, values in self.measurements.items():
-            if not values:
-                continue
-            if any(ar.axis == axis for ar in self.axis_results):
-                continue
-
-            sigma = self.calculator.calculate_sigma(values)
-            range_val = self.calculator.calculate_range(values)
-
-            axis_result_str = "OK"
-            if self.limits:
-                axis_result_str = self.calculator.evaluate_axis_result(
-                    sigma,
-                    range_val,
-                    self.limits,
-                    self.var_check_sigma.get(),
-                    self.var_check_range.get(),
-                )
-
-            ar = AxisResult(
-                axis=axis,
-                sigma=sigma,
-                range_val=range_val,
-                result=axis_result_str,
-                ncycles=len(values),
-                direction=str(axis),
-            )
-            self.axis_results.append(ar)
+        self._finalize_incomplete_axes()
 
         if self.axis_results:
             self._complete_test()
