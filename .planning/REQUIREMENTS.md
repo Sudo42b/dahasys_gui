@@ -14,8 +14,8 @@ Requirements for this refactoring round. Each maps to roadmap phases.
 - [x] **STRUCT-03**: Extract MiniasDatabase class into `minias/database.py`
 - [x] **STRUCT-04**: Extract SerialCommunicator class into `minias/serial_comm.py`
 - [x] **STRUCT-05**: Extract TestCalculator class into `minias/calculator.py`
-- [ ] **STRUCT-06**: Extract ExcelExporter class into `minias/excel_export.py`
-- [ ] **STRUCT-07**: Extract CertificateGenerator class into `minias/certificate.py`
+- [x] **STRUCT-06**: Extract ExcelExporter class into `minias/excel_export.py`
+- [x] **STRUCT-07**: Extract CertificateGenerator class into `minias/certificate.py`
 - [ ] **STRUCT-08**: Extract LimitsDialog and SettingsDialog into `minias/dialogs.py`
 - [ ] **STRUCT-09**: Move remaining MiniasApp class and main() into `minias/app.py`
 - [ ] **STRUCT-10**: Update pyproject.toml scripts entry to `minias.app:main`
@@ -94,8 +94,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STRUCT-03 | Phase 2 | Complete |
 | STRUCT-04 | Phase 2 | Complete |
 | STRUCT-05 | Phase 2 | Complete |
-| STRUCT-06 | Phase 2 | Pending |
-| STRUCT-07 | Phase 2 | Pending |
+| STRUCT-06 | Phase 2 | Complete |
+| STRUCT-07 | Phase 2 | Complete |
 | STRUCT-08 | Phase 3 | Pending |
 | STRUCT-09 | Phase 3 | Pending |
 | STRUCT-10 | Phase 3 | Pending |

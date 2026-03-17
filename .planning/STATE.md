@@ -2,41 +2,42 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 2
-current_plan: 3
+current_phase: 3
+current_plan: 1
 status: in_progress
-last_updated: "2026-03-17T03:50:02Z"
+last_updated: "2026-03-17T04:04:21Z"
 progress:
   total_phases: 6
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # Project State: MINIAS Refactor
 
 ## Status
-**Current Phase:** 2
-**Current Plan:** 3 (of 3 for Phase 2)
-**Overall Progress:** ███░░░░░░░ ~15%
+**Current Phase:** 3
+**Current Plan:** 1 (Phase 2 complete, Phase 3 pending planning)
+**Overall Progress:** ████░░░░░░ ~25%
 
 ## Session Log
 - 2025-03-17: Phase 1 context gathered → `.planning/phases/01-package-scaffold-leaf-models/01-CONTEXT.md`
 - 2026-03-17: Phase 1 Plan 01 executed — minias/ package created, 5 dataclasses extracted
 - 2026-03-17: Phase 2 Plan 01 executed — SerialCommunicator + TestCalculator extracted to minias/
 - 2026-03-17: Phase 2 Plan 02 executed — MiniasDatabase extracted to minias/database.py
-- Resume: Phase 2 Plan 03 execution (Export modules extraction)
+- 2026-03-17: Phase 2 Plan 03 executed — ExcelExporter + CertificateGenerator extracted; Phase 2 complete
+- Resume: Phase 3 planning (Dialogs, App Shell & Entry Point)
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2025-03-17)
 **Core value:** Navigable, maintainable codebase — identical behavior and appearance
-**Current focus:** Phase 2 — Service Module Extraction
+**Current focus:** Phase 3 — Dialogs, App Shell & Entry Point
 
 ## Phase Status
 | Phase | Name | Status | Plans |
 |-------|------|--------|-------|
 | 1 | Package Scaffold & Leaf Models | Complete | 1/1 |
-| 2 | Service Module Extraction | In Progress | 2/3 |
+| 2 | Service Module Extraction | Complete | 3/3 |
 | 3 | Dialogs, App Shell & Entry Point | Pending | 0/0 |
 | 4 | Bug Fixes & Dead Code Removal | Pending | 0/0 |
 | 5 | Deduplication & Code Quality | Pending | 0/0 |
@@ -82,6 +83,7 @@ Critical information for any agent picking up this project:
 | 01-01 | Placed local import after third-party try/except blocks | Follows project import ordering convention (stdlib → third-party → local) |
 | 02-01 | Kept inline imports inside methods during extraction | Two-pass discipline: no refactoring during extraction |
 | 02-02 | Removed `import sqlite3` from monolith | Only used within MiniasDatabase class, no other references in remaining code |
+| 02-03 | Changed CertificateGenerator.script_dir to os.getcwd() | Module relocated to minias/ — __file__-relative paths would break resource resolution |
 
 ## Performance Metrics
 
@@ -90,6 +92,7 @@ Critical information for any agent picking up this project:
 | 01-01 | 4min | 3 | 4 |
 | 02-01 | 7min | 2 | 4 |
 | 02-02 | 6min | 2 | 3 |
+| 02-03 | 8min | 2 | 4 |
 
 ---
-*Last updated: 2026-03-17 after Phase 2 Plan 02 execution*
+*Last updated: 2026-03-17 after Phase 2 Plan 03 execution — Phase 2 complete*
