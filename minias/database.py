@@ -40,7 +40,17 @@ class MiniasDatabase:
     def _init_tables(self):
         """테이블 초기화"""
         cursor = self.conn.cursor()
+        self._create_core_tables(cursor)
+        self._create_config_tables(cursor)
+        self._create_result_tables(cursor)
+        self._create_measure_tables(cursor)
+        self.conn.commit()
 
+        # 기본 데이터 삽입
+        self._insert_default_data()
+
+    def _create_core_tables(self, cursor):
+        """기본 테이블 생성 (OPERATORS, CODES)"""
         # OPERATORS 테이블
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS OPERATORS (
@@ -62,6 +72,8 @@ class MiniasDatabase:
             )
         """)
 
+    def _create_config_tables(self, cursor):
+        """설정 테이블 생성 (SETUP, LIMITS)"""
         # SETUP 테이블
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS SETUP (
@@ -88,6 +100,8 @@ class MiniasDatabase:
             )
         """)
 
+    def _create_result_tables(self, cursor):
+        """결과 테이블 생성 (TEST_RESULTS, TEST_AXIS_RESULTS, TEST_SAMPLES)"""
         # TEST_RESULTS 테이블
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS TEST_RESULTS (
@@ -137,6 +151,8 @@ class MiniasDatabase:
             )
         """)
 
+    def _create_measure_tables(self, cursor):
+        """측정값 테이블 생성 (MEASURES)"""
         # MEASURES 테이블 (현재 측정값)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS MEASURES (
@@ -148,11 +164,6 @@ class MiniasDatabase:
                 PRIMARY KEY (AXIS, CYCLE)
             )
         """)
-
-        self.conn.commit()
-
-        # 기본 데이터 삽입
-        self._insert_default_data()
 
     def _insert_default_data(self):
         """기본 데이터 삽입"""
