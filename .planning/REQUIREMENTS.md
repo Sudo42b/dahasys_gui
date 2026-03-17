@@ -36,10 +36,10 @@ Requirements for this refactoring round. Each maps to roadmap phases.
 
 ### Dead Code Removal
 
-- [ ] **DEAD-01**: Remove unused `get_samples()` method from database class
-- [ ] **DEAD-02**: Remove unused `send_command()` method from SerialCommunicator
-- [ ] **DEAD-03**: Remove EXCEL_SETUP table creation code (table is created but never read/written)
-- [ ] **DEAD-04**: Remove unused `template_path` parameter from ExcelExporter constructor
+- [x] **DEAD-01**: Remove unused `get_samples()` method from database class
+- [x] **DEAD-02**: Remove unused `send_command()` method from SerialCommunicator
+- [x] **DEAD-03**: Remove EXCEL_SETUP table creation code (table is created but never read/written)
+- [x] **DEAD-04**: Remove unused `template_path` parameter from ExcelExporter constructor
 
 ### Method Decomposition
 
@@ -107,10 +107,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BUGF-02 | Phase 4 | Pending |
 | BUGF-03 | Phase 4 | Pending |
 | BUGF-04 | Phase 4 | Pending |
-| DEAD-01 | Phase 4 | Pending |
-| DEAD-02 | Phase 4 | Pending |
-| DEAD-03 | Phase 4 | Pending |
-| DEAD-04 | Phase 4 | Pending |
+| DEAD-01 | Phase 4 | Complete |
+| DEAD-02 | Phase 4 | Complete |
+| DEAD-03 | Phase 4 | Complete |
+| DEAD-04 | Phase 4 | Complete |
 | METH-01 | Phase 6 | Pending |
 | METH-02 | Phase 6 | Pending |
 | METH-03 | Phase 6 | Pending |

@@ -3,22 +3,22 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 4
-current_plan: Not started
-status: unknown
-last_updated: "2026-03-17T04:49:01.602Z"
+current_plan: 2 of 2
+status: in-progress
+last_updated: "2026-03-17T05:18:00Z"
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
 ---
 
 # Project State: MINIAS Refactor
 
 ## Status
 **Current Phase:** 4
-**Current Plan:** Not started
-**Overall Progress:** █████░░░░░ ~50%
+**Current Plan:** 2 of 2 (04-02 complete, 04-01 pending)
+**Overall Progress:** ███████░░░ ~70%
 
 ## Session Log
 - 2025-03-17: Phase 1 context gathered → `.planning/phases/01-package-scaffold-leaf-models/01-CONTEXT.md`
@@ -28,11 +28,12 @@ progress:
 - 2026-03-17: Phase 2 Plan 03 executed — ExcelExporter + CertificateGenerator extracted; Phase 2 complete
 - 2026-03-17: Phase 3 Plan 01 executed — LimitsDialog + SettingsDialog extracted to minias/dialogs.py
 - 2026-03-17: Phase 3 Plan 02 executed — MiniasApp moved to minias/app.py, entry point updated, monolith dissolved; Phase 3 complete
+- 2026-03-17: Phase 4 Plan 02 executed — 4 dead code items removed (get_samples, send_command, EXCEL_SETUP, template_path)
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2025-03-17)
 **Core value:** Navigable, maintainable codebase — identical behavior and appearance
-**Current focus:** Phases 1-3 complete (structural extraction done). Next: Phase 4 — Bug Fixes & Dead Code Removal
+**Current focus:** Phase 4 in progress (04-02 dead code removal done, 04-01 bug fixes pending)
 
 ## Phase Status
 | Phase | Name | Status | Plans |
@@ -40,7 +41,7 @@ See: .planning/PROJECT.md (updated 2025-03-17)
 | 1 | Package Scaffold & Leaf Models | Complete | 1/1 |
 | 2 | Service Module Extraction | Complete | 3/3 |
 | 3 | Dialogs, App Shell & Entry Point | Complete | 2/2 |
-| 4 | Bug Fixes & Dead Code Removal | Pending | 0/0 |
+| 4 | Bug Fixes & Dead Code Removal | In Progress | 1/2 |
 | 5 | Deduplication & Code Quality | Pending | 0/0 |
 | 6 | Method Decomposition | Pending | 0/0 |
 
@@ -87,6 +88,7 @@ Critical information for any agent picking up this project:
 | 02-03 | Changed CertificateGenerator.script_dir to os.getcwd() | Module relocated to minias/ — __file__-relative paths would break resource resolution |
 | 03-02 | Added hatchling build-system to pyproject.toml | uv sync skips entry point installation without [build-system] — required for `uv run minias` |
 | 03-02 | Kept minias_app.py as compatibility shim | Preserves backward compat for `python minias_app.py` direct execution |
+| 04-02 | Removed 4 confirmed-dead items in 2 atomic commits | Grouped by file for clean history |
 
 ## Performance Metrics
 
@@ -97,7 +99,8 @@ Critical information for any agent picking up this project:
 | 02-02 | 6min | 2 | 3 |
 | 02-03 | 8min | 2 | 4 |
 | 03-02 | 8min | 2 | 5 |
+| 04-02 | 3min | 2 | 3 |
 
 ---
-*Last updated: 2026-03-17 after Phase 3 Plan 02 execution — Phase 3 complete, monolith dissolved*
+*Last updated: 2026-03-17 after Phase 4 Plan 02 execution — dead code removal complete*
 
