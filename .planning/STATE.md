@@ -1,12 +1,14 @@
 # Project State: MINIAS Refactor
 
 ## Status
-**Current Phase:** Phase 1 — context gathered, ready for planning
-**Overall Progress:** 0%
+**Current Phase:** Phase 1 — Plan 01 complete
+**Current Plan:** 1 of 1 (Phase 1)
+**Overall Progress:** ██░░░░░░░░ ~5%
 
 ## Session Log
 - 2025-03-17: Phase 1 context gathered → `.planning/phases/01-package-scaffold-leaf-models/01-CONTEXT.md`
-- Resume: `/gsd-plan-phase 1`
+- 2026-03-17: Phase 1 Plan 01 executed — minias/ package created, 5 dataclasses extracted
+- Resume: Next phase/plan execution
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2025-03-17)
@@ -16,7 +18,7 @@ See: .planning/PROJECT.md (updated 2025-03-17)
 ## Phase Status
 | Phase | Name | Status | Plans |
 |-------|------|--------|-------|
-| 1 | Package Scaffold & Leaf Models | Pending | 0/0 |
+| 1 | Package Scaffold & Leaf Models | In Progress | 1/1 |
 | 2 | Service Module Extraction | Pending | 0/0 |
 | 3 | Dialogs, App Shell & Entry Point | Pending | 0/0 |
 | 4 | Bug Fixes & Dead Code Removal | Pending | 0/0 |
@@ -55,5 +57,18 @@ Critical information for any agent picking up this project:
 
 7. **File paths are relative to CWD.** `minias.db`, `resources/form.xlsx`, `MINIAS.INI` — these must not change. No `__file__`-relative path rewrites.
 
+## Decisions Log
+
+| Phase | Decision | Rationale |
+|-------|----------|-----------|
+| 01-01 | Removed `from dataclasses import dataclass, field` from monolith | `@dataclass` no longer used anywhere in monolith after extraction |
+| 01-01 | Placed local import after third-party try/except blocks | Follows project import ordering convention (stdlib → third-party → local) |
+
+## Performance Metrics
+
+| Phase-Plan | Duration | Tasks | Files |
+|------------|----------|-------|-------|
+| 01-01 | 4min | 3 | 4 |
+
 ---
-*Last updated: 2025-03-17 after Phase 1 context gathering*
+*Last updated: 2026-03-17 after Phase 1 Plan 01 execution*

@@ -9,8 +9,8 @@ Requirements for this refactoring round. Each maps to roadmap phases.
 
 ### Structural Extraction
 
-- [ ] **STRUCT-01**: Create `minias/` package directory with `__init__.py` and `__main__.py`
-- [ ] **STRUCT-02**: Extract 5 dataclasses (TestResult, AxisResult, CodeInfo, SetupInfo, LimitInfo) into `minias/models.py`
+- [x] **STRUCT-01**: Create `minias/` package directory with `__init__.py` and `__main__.py`
+- [x] **STRUCT-02**: Extract 5 dataclasses (TestResult, AxisResult, CodeInfo, SetupInfo, LimitInfo) into `minias/models.py`
 - [ ] **STRUCT-03**: Extract MiniasDatabase class into `minias/database.py`
 - [ ] **STRUCT-04**: Extract SerialCommunicator class into `minias/serial_comm.py`
 - [ ] **STRUCT-05**: Extract TestCalculator class into `minias/calculator.py`
@@ -89,8 +89,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STRUCT-01 | Phase 1 | Pending |
-| STRUCT-02 | Phase 1 | Pending |
+| STRUCT-01 | Phase 1 | Complete |
+| STRUCT-02 | Phase 1 | Complete |
 | STRUCT-03 | Phase 2 | Pending |
 | STRUCT-04 | Phase 2 | Pending |
 | STRUCT-05 | Phase 2 | Pending |
