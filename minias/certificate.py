@@ -6,15 +6,17 @@ from typing import List, Optional
 
 # PDF 인증서 출력
 try:
-    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.pagesizes import A4, A5
     from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
     from reportlab.platypus import (
         SimpleDocTemplate,
         Table,
         TableStyle,
         Paragraph,
         Spacer,
+        Image,
     )
     from reportlab.lib.units import mm
 
@@ -47,20 +49,6 @@ class CertificateGenerator:
             return False
 
         try:
-            from reportlab.lib.pagesizes import A5
-            from reportlab.lib import colors
-            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-            from reportlab.platypus import (
-                SimpleDocTemplate,
-                Table,
-                TableStyle,
-                Paragraph,
-                Spacer,
-                Image,
-            )
-            from reportlab.lib.units import mm
-            from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-
             doc = SimpleDocTemplate(
                 output_path,
                 pagesize=A4,
@@ -70,265 +58,13 @@ class CertificateGenerator:
                 bottomMargin=10 * mm,
             )
 
+            styles = self._setup_styles()
             elements = []
-            styles = getSampleStyleSheet()
 
-            # 공통 스타일 (A5 축소)
-            center_style = ParagraphStyle(
-                "CenterCell",
-                parent=styles["Normal"],
-                fontSize=7,
-                alignment=TA_CENTER,
-            )
-            bold_center_style = ParagraphStyle(
-                "BoldCenterCell",
-                parent=styles["Normal"],
-                fontSize=7,
-                alignment=TA_CENTER,
-                fontName="Helvetica-Bold",
-            )
+            self._build_header(elements, styles, result, code_info)
+            self._build_data_table(elements, styles, result, axis_results)
+            self._build_footer(elements, styles, result)
 
-            # ========== Row 1: 로고 (좌측) + INSPECTION SHEET (가운데) ==========
-            logo_cell = ""
-            if os.path.exists(self.logo_path):
-                try:
-                    logo_cell = Image(self.logo_path, width=25 * mm, height=25 * mm)
-                except Exception as e:
-                    print(f"Logo load error: {e}")
-                    logo_cell = ""
-
-            title_style = ParagraphStyle(
-                "TitleCell",
-                parent=styles["Heading1"],
-                fontSize=16,
-                alignment=TA_CENTER,
-                leading=20,
-            )
-            title_para = Paragraph("<b>INSPECTION SHEET</b>", title_style)
-
-            header_data = [[logo_cell, title_para]]
-            header_table = Table(header_data, colWidths=[30 * mm, 150 * mm])
-            header_table.setStyle(
-                TableStyle(
-                    [
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                        ("ALIGN", (0, 0), (0, 0), "LEFT"),
-                        ("ALIGN", (1, 0), (1, 0), "CENTER"),
-                    ]
-                )
-            )
-            elements.append(header_table)
-            elements.append(Spacer(1, 5 * mm))
-
-            # ========== Probe Model / Code / Serial (셀 병합 및 가운데정렬) ==========
-            probe_type = code_info.probe_type if code_info else ""
-            info_data = [
-                [
-                    "Probe Model",
-                    probe_type,
-                    "Code",
-                    result.code,
-                    "Serial",
-                    result.serial_number,
-                ],
-            ]
-            info_table = Table(
-                info_data,
-                colWidths=[25 * mm, 45 * mm, 15 * mm, 40 * mm, 15 * mm, 40 * mm],
-            )
-            info_table.setStyle(
-                TableStyle(
-                    [
-                        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-                        ("FONTSIZE", (0, 0), (-1, -1), 10),
-                        ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
-                        ("FONTNAME", (2, 0), (2, 0), "Helvetica-Bold"),
-                        ("FONTNAME", (4, 0), (4, 0), "Helvetica-Bold"),
-                        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                        ("TOPPADDING", (0, 0), (-1, -1), 8),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                        ("BACKGROUND", (0, 0), (0, 0), colors.Color(0.85, 0.85, 0.85)),
-                        ("BACKGROUND", (2, 0), (2, 0), colors.Color(0.85, 0.85, 0.85)),
-                        ("BACKGROUND", (4, 0), (4, 0), colors.Color(0.85, 0.85, 0.85)),
-                    ]
-                )
-            )
-            elements.append(info_table)
-            elements.append(Spacer(1, 5 * mm))
-
-            # ========== TEST CYCLE DESCRIPTION ==========
-            section_style = ParagraphStyle(
-                "Section",
-                parent=styles["Heading2"],
-                fontSize=11,
-                alignment=TA_LEFT,
-                spaceAfter=3,
-                spaceBefore=5,
-                textColor=colors.black,
-                backColor=colors.Color(0.9, 0.9, 0.9),
-            )
-            elements.append(Paragraph("TEST CYCLE DESCRIPTION", section_style))
-
-            # ========== Cycle sequence 설명 ==========
-            ncycles = 100
-            if axis_results and len(axis_results) > 0:
-                ncycles = axis_results[0].ncycles or 100
-                # Fix: If old data or off-by-one stored ncycles as 99, display 100
-                if ncycles == 99:
-                    ncycles = 100
-
-            cycle_desc_style = ParagraphStyle(
-                "CycleDesc",
-                parent=styles["Normal"],
-                fontSize=7,
-                alignment=TA_CENTER,
-                spaceBefore=3,
-                spaceAfter=3,
-            )
-            cycle_desc = f"Cycle sequence: X+ X- Y+ Y- Z- touch direction repeated {ncycles} times"
-            elements.append(Paragraph(cycle_desc, styles["Normal"]))
-            elements.append(Spacer(1, 3 * mm))
-
-            # ========== Direction / Range 테이블 (셀 병합 및 가운데정렬) ==========
-            dir_labels = ["Y-", "X+", "Y+", "X-"]
-
-            # 축별 Range 데이터 (소수점 1자리)
-            axis_ranges = []
-            axis_2sigmas = []
-            for i in range(4):
-                if i < len(axis_results):
-                    axis_ranges.append(f"{axis_results[i].range_val:.1f}")
-                    axis_2sigmas.append(f"{2.0 * axis_results[i].sigma:.1f}")
-                else:
-                    axis_ranges.append("-")
-                    axis_2sigmas.append("-")
-
-            # Mean Range 계산
-            mean_range_val = f"{result.mean_range:.1f}"
-
-            # micron 단위를 데이터 셀에 병합 (9열 → 5열)
-            def _fmt_micron(val: str) -> str:
-                """데이터 값에 micron 단위 병합 (빈 값이면 그대로 반환)"""
-                return f"{val} micron" if val and val != "-" else val
-
-            axis_data = [
-                [
-                    "Direction",
-                    dir_labels[0],
-                    dir_labels[1],
-                    dir_labels[2],
-                    dir_labels[3],
-                ],
-                [
-                    f"R({ncycles})={result.worst_range_limit:.1f}Micron",
-                    _fmt_micron(axis_ranges[0]),
-                    _fmt_micron(axis_ranges[1]),
-                    _fmt_micron(axis_ranges[2]),
-                    _fmt_micron(axis_ranges[3]),
-                ],
-                [
-                    f"R({ncycles})={result.worst_range_limit:.1f}Micron",
-                    f"{mean_range_val} micron",
-                    "",
-                    "",
-                    "",
-                ],
-            ]
-
-            col_w = 32 * mm
-            axis_table = Table(
-                axis_data,
-                colWidths=[40 * mm, col_w, col_w, col_w, col_w],
-            )
-            axis_table.setStyle(
-                TableStyle(
-                    [
-                        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-                        ("FONTSIZE", (0, 0), (-1, -1), 9),
-                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                        ("ALIGN", (0, 0), (0, -1), "LEFT"),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                        ("BACKGROUND", (0, 0), (0, 0), colors.Color(0.85, 0.85, 0.85)),
-                        ("BACKGROUND", (1, 0), (1, 0), colors.Color(0.85, 0.85, 0.85)),
-                        ("BACKGROUND", (3, 0), (3, 0), colors.Color(0.85, 0.85, 0.85)),
-                        ("BACKGROUND", (5, 0), (5, 0), colors.Color(0.85, 0.85, 0.85)),
-                        ("BACKGROUND", (7, 0), (7, 0), colors.Color(0.85, 0.85, 0.85)),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                        ("TOPPADDING", (0, 0), (-1, -1), 4),
-                    ]
-                )
-            )
-            elements.append(axis_table)
-            elements.append(Spacer(1, 3 * mm))
-
-            # ========== Row 11-12: Un direct direction (Z-) — 5열 구조 ==========
-            z_data = [
-                ["Un direct direction", "Z-", "", "Dia", ""],
-                ["", "Micron", "", "Micron", ""],
-            ]
-            z_table = Table(
-                z_data,
-                colWidths=[40 * mm, col_w, col_w, col_w, col_w],
-            )
-            z_table.setStyle(
-                TableStyle(
-                    [
-                        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-                        ("FONTSIZE", (0, 0), (-1, -1), 9),
-                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                        ("ALIGN", (0, 0), (0, -1), "LEFT"),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.95, 0.95, 0.95)),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                        ("TOPPADDING", (0, 0), (-1, -1), 4),
-                    ]
-                )
-            )
-            elements.append(z_table)
-            elements.append(Spacer(1, 8 * mm))
-
-            # ========== 날짜 / TEST OK or NG / 작업자 (가운데정렬) ==========
-            result_text = "TEST OK" if result.result == "OK" else "TEST NG"
-            result_color = colors.darkgreen if result.result == "OK" else colors.red
-
-            result_para_style = ParagraphStyle(
-                "ResultText",
-                parent=styles["Normal"],
-                fontSize=12,
-                alignment=TA_CENTER,
-                textColor=result_color,
-                fontName="Helvetica-Bold",
-            )
-
-            footer_data = [
-                [
-                    result.date.strftime("%Y-%m-%d"),
-                    Paragraph(f"<b>{result_text}</b>", result_para_style),
-                    f"operator: {result.operator}",
-                ]
-            ]
-            footer_table = Table(footer_data, colWidths=[50 * mm, 60 * mm, 70 * mm])
-            footer_table.setStyle(
-                TableStyle(
-                    [
-                        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-                        ("FONTSIZE", (0, 0), (-1, -1), 10),
-                        ("ALIGN", (0, 0), (0, 0), "LEFT"),
-                        ("ALIGN", (1, 0), (1, 0), "CENTER"),
-                        ("ALIGN", (2, 0), (2, 0), "RIGHT"),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                        ("TOPPADDING", (0, 0), (-1, -1), 8),
-                    ]
-                )
-            )
-            elements.append(footer_table)
-
-            # PDF 빌드
             doc.build(elements)
             print(f"PDF saved to: {output_path}")
             return True
@@ -339,3 +75,295 @@ class CertificateGenerator:
             print(f"PDF generation error: {e}")
             traceback.print_exc()
             return False
+
+    def _setup_styles(self) -> dict:
+        """PDF 스타일 설정"""
+        styles = getSampleStyleSheet()
+
+        custom = {
+            "base": styles,
+            "center": ParagraphStyle(
+                "CenterCell",
+                parent=styles["Normal"],
+                fontSize=7,
+                alignment=TA_CENTER,
+            ),
+            "bold_center": ParagraphStyle(
+                "BoldCenterCell",
+                parent=styles["Normal"],
+                fontSize=7,
+                alignment=TA_CENTER,
+                fontName="Helvetica-Bold",
+            ),
+            "title": ParagraphStyle(
+                "TitleCell",
+                parent=styles["Heading1"],
+                fontSize=16,
+                alignment=TA_CENTER,
+                leading=20,
+            ),
+            "section": ParagraphStyle(
+                "Section",
+                parent=styles["Heading2"],
+                fontSize=11,
+                alignment=TA_LEFT,
+                spaceAfter=3,
+                spaceBefore=5,
+                textColor=colors.black,
+                backColor=colors.Color(0.9, 0.9, 0.9),
+            ),
+            "cycle_desc": ParagraphStyle(
+                "CycleDesc",
+                parent=styles["Normal"],
+                fontSize=7,
+                alignment=TA_CENTER,
+                spaceBefore=3,
+                spaceAfter=3,
+            ),
+        }
+        return custom
+
+    def _build_header(
+        self,
+        elements: list,
+        styles: dict,
+        result: TestResult,
+        code_info: CodeInfo,
+    ) -> None:
+        """헤더 섹션 — 로고, 타이틀, 프로브 정보"""
+        # ========== Row 1: 로고 (좌측) + INSPECTION SHEET (가운데) ==========
+        logo_cell = ""
+        if os.path.exists(self.logo_path):
+            try:
+                logo_cell = Image(self.logo_path, width=25 * mm, height=25 * mm)
+            except Exception as e:
+                print(f"Logo load error: {e}")
+                logo_cell = ""
+
+        title_para = Paragraph("<b>INSPECTION SHEET</b>", styles["title"])
+
+        header_data = [[logo_cell, title_para]]
+        header_table = Table(header_data, colWidths=[30 * mm, 150 * mm])
+        header_table.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("ALIGN", (0, 0), (0, 0), "LEFT"),
+                    ("ALIGN", (1, 0), (1, 0), "CENTER"),
+                ]
+            )
+        )
+        elements.append(header_table)
+        elements.append(Spacer(1, 5 * mm))
+
+        # ========== Probe Model / Code / Serial (셀 병합 및 가운데정렬) ==========
+        probe_type = code_info.probe_type if code_info else ""
+        info_data = [
+            [
+                "Probe Model",
+                probe_type,
+                "Code",
+                result.code,
+                "Serial",
+                result.serial_number,
+            ],
+        ]
+        info_table = Table(
+            info_data,
+            colWidths=[25 * mm, 45 * mm, 15 * mm, 40 * mm, 15 * mm, 40 * mm],
+        )
+        info_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 10),
+                    ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
+                    ("FONTNAME", (2, 0), (2, 0), "Helvetica-Bold"),
+                    ("FONTNAME", (4, 0), (4, 0), "Helvetica-Bold"),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                    ("BACKGROUND", (0, 0), (0, 0), colors.Color(0.85, 0.85, 0.85)),
+                    ("BACKGROUND", (2, 0), (2, 0), colors.Color(0.85, 0.85, 0.85)),
+                    ("BACKGROUND", (4, 0), (4, 0), colors.Color(0.85, 0.85, 0.85)),
+                ]
+            )
+        )
+        elements.append(info_table)
+        elements.append(Spacer(1, 5 * mm))
+
+    def _build_data_table(
+        self,
+        elements: list,
+        styles: dict,
+        result: TestResult,
+        axis_results: List[AxisResult],
+    ) -> None:
+        """데이터 테이블 섹션 — 테스트 사이클 설명 및 축별 결과"""
+        # ========== TEST CYCLE DESCRIPTION ==========
+        elements.append(Paragraph("TEST CYCLE DESCRIPTION", styles["section"]))
+
+        # ========== Cycle sequence 설명 ==========
+        ncycles = 100
+        if axis_results and len(axis_results) > 0:
+            ncycles = axis_results[0].ncycles or 100
+            # Fix: If old data or off-by-one stored ncycles as 99, display 100
+            if ncycles == 99:
+                ncycles = 100
+
+        cycle_desc = (
+            f"Cycle sequence: X+ X- Y+ Y- Z- touch direction repeated {ncycles} times"
+        )
+        elements.append(Paragraph(cycle_desc, styles["base"]["Normal"]))
+        elements.append(Spacer(1, 3 * mm))
+
+        # ========== Direction / Range 테이블 (셀 병합 및 가운데정렬) ==========
+        dir_labels = ["Y-", "X+", "Y+", "X-"]
+
+        # 축별 Range 데이터 (소수점 1자리)
+        axis_ranges = []
+        axis_2sigmas = []
+        for i in range(4):
+            if i < len(axis_results):
+                axis_ranges.append(f"{axis_results[i].range_val:.1f}")
+                axis_2sigmas.append(f"{2.0 * axis_results[i].sigma:.1f}")
+            else:
+                axis_ranges.append("-")
+                axis_2sigmas.append("-")
+
+        # Mean Range 계산
+        mean_range_val = f"{result.mean_range:.1f}"
+
+        # micron 단위를 데이터 셀에 병합 (9열 → 5열)
+        def _fmt_micron(val: str) -> str:
+            """데이터 값에 micron 단위 병합 (빈 값이면 그대로 반환)"""
+            return f"{val} micron" if val and val != "-" else val
+
+        axis_data = [
+            [
+                "Direction",
+                dir_labels[0],
+                dir_labels[1],
+                dir_labels[2],
+                dir_labels[3],
+            ],
+            [
+                f"R({ncycles})={result.worst_range_limit:.1f}Micron",
+                _fmt_micron(axis_ranges[0]),
+                _fmt_micron(axis_ranges[1]),
+                _fmt_micron(axis_ranges[2]),
+                _fmt_micron(axis_ranges[3]),
+            ],
+            [
+                f"R({ncycles})={result.worst_range_limit:.1f}Micron",
+                f"{mean_range_val} micron",
+                "",
+                "",
+                "",
+            ],
+        ]
+
+        col_w = 32 * mm
+        axis_table = Table(
+            axis_data,
+            colWidths=[40 * mm, col_w, col_w, col_w, col_w],
+        )
+        axis_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("ALIGN", (0, 0), (0, -1), "LEFT"),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+                    ("BACKGROUND", (0, 0), (0, 0), colors.Color(0.85, 0.85, 0.85)),
+                    ("BACKGROUND", (1, 0), (1, 0), colors.Color(0.85, 0.85, 0.85)),
+                    ("BACKGROUND", (3, 0), (3, 0), colors.Color(0.85, 0.85, 0.85)),
+                    ("BACKGROUND", (5, 0), (5, 0), colors.Color(0.85, 0.85, 0.85)),
+                    ("BACKGROUND", (7, 0), (7, 0), colors.Color(0.85, 0.85, 0.85)),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
+        elements.append(axis_table)
+        elements.append(Spacer(1, 3 * mm))
+
+        self._build_z_table(elements)
+
+    def _build_z_table(self, elements: list) -> None:
+        """Z축 방향 테이블 — Un direct direction (Z-) 및 Dia"""
+        # ========== Row 11-12: Un direct direction (Z-) — 5열 구조 ==========
+        col_w = 32 * mm
+        z_data = [
+            ["Un direct direction", "Z-", "", "Dia", ""],
+            ["", "Micron", "", "Micron", ""],
+        ]
+        z_table = Table(
+            z_data,
+            colWidths=[40 * mm, col_w, col_w, col_w, col_w],
+        )
+        z_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("ALIGN", (0, 0), (0, -1), "LEFT"),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.95, 0.95, 0.95)),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
+        elements.append(z_table)
+        elements.append(Spacer(1, 8 * mm))
+
+    def _build_footer(
+        self,
+        elements: list,
+        styles: dict,
+        result: TestResult,
+    ) -> None:
+        """푸터 섹션 — 날짜, 판정 결과, 작업자"""
+        # ========== 날짜 / TEST OK or NG / 작업자 (가운데정렬) ==========
+        result_text = "TEST OK" if result.result == "OK" else "TEST NG"
+        result_color = colors.darkgreen if result.result == "OK" else colors.red
+
+        result_para_style = ParagraphStyle(
+            "ResultText",
+            parent=styles["base"]["Normal"],
+            fontSize=12,
+            alignment=TA_CENTER,
+            textColor=result_color,
+            fontName="Helvetica-Bold",
+        )
+
+        footer_data = [
+            [
+                result.date.strftime("%Y-%m-%d"),
+                Paragraph(f"<b>{result_text}</b>", result_para_style),
+                f"operator: {result.operator}",
+            ]
+        ]
+        footer_table = Table(footer_data, colWidths=[50 * mm, 60 * mm, 70 * mm])
+        footer_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 10),
+                    ("ALIGN", (0, 0), (0, 0), "LEFT"),
+                    ("ALIGN", (1, 0), (1, 0), "CENTER"),
+                    ("ALIGN", (2, 0), (2, 0), "RIGHT"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ]
+            )
+        )
+        elements.append(footer_table)
