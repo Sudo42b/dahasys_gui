@@ -7,3 +7,4 @@ from minias.serial_comm import SerialCommunicator, SERIAL_AVAILABLE
 from minias.calculator import TestCalculator
 from minias.database import MiniasDatabase
 from minias.excel_export import ExcelExporter, EXCEL_AVAILABLE
+from minias.certificate import CertificateGenerator, PDF_AVAILABLE
