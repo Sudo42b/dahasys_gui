@@ -143,7 +143,7 @@ Plans:
 **Goal:** Break up the three oversized methods into focused, well-named sub-methods for readability and navigability.
 
 **Requirements:** METH-01, METH-02, METH-03
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 06-01-PLAN.md — Decompose _create_gui() + _init_tables() (app.py + database.py)

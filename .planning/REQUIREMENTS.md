@@ -43,9 +43,9 @@ Requirements for this refactoring round. Each maps to roadmap phases.
 
 ### Method Decomposition
 
-- [ ] **METH-01**: Break `_create_gui()` (207 lines) into focused builder methods (_create_toolbar, _create_input_panel, _create_status_bar, _create_grid, etc.)
+- [x] **METH-01**: Break `_create_gui()` (207 lines) into focused builder methods (_create_toolbar, _create_input_panel, _create_status_bar, _create_grid, etc.)
 - [ ] **METH-02**: Break `CertificateGenerator.generate()` (305 lines) into logical sub-methods
-- [ ] **METH-03**: Break `_init_tables()` (134 lines) into smaller, focused methods
+- [x] **METH-03**: Break `_init_tables()` (134 lines) into smaller, focused methods
 
 ### Code Quality
 
@@ -111,9 +111,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEAD-02 | Phase 4 | Complete |
 | DEAD-03 | Phase 4 | Complete |
 | DEAD-04 | Phase 4 | Complete |
-| METH-01 | Phase 6 | Pending |
+| METH-01 | Phase 6 | Complete |
 | METH-02 | Phase 6 | Pending |
-| METH-03 | Phase 6 | Pending |
+| METH-03 | Phase 6 | Complete |
 | QUAL-01 | Phase 5 | Complete |
 | QUAL-02 | Phase 5 | Complete |
 | QUAL-03 | Phase 5 | Complete |

@@ -3,22 +3,22 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 6
-current_plan: Not started
-status: unknown
-last_updated: "2026-03-17T06:09:45.729Z"
+current_plan: 3
+status: in_progress
+last_updated: "2026-03-17T06:31:10.167Z"
 progress:
   total_phases: 6
-  completed_phases: 5
-  total_plans: 10
-  completed_plans: 10
+  completed_phases: 6
+  total_plans: 12
+  completed_plans: 12
 ---
 
 # Project State: MINIAS Refactor
 
 ## Status
 **Current Phase:** 6
-**Current Plan:** Not started
-**Overall Progress:** ██████████ ~100%
+**Current Plan:** 3 of 2 (Phase 6)
+**Overall Progress:** [██████████] 100%
 
 ## Session Log
 - 2025-03-17: Phase 1 context gathered → `.planning/phases/01-package-scaffold-leaf-models/01-CONTEXT.md`
@@ -31,11 +31,13 @@ progress:
 - 2026-03-17: Phase 4 Plan 02 executed — 4 dead code items removed (get_samples, send_command, EXCEL_SETUP, template_path)
 - 2026-03-17: Phase 5 Plan 01 executed — safe_get closures consolidated, port lists deduplicated, inline imports removed
 - 2026-03-17: Phase 5 Plan 02 executed — stop-save dedup, unit conversion centralized, configparser INI; Phase 5 complete
+- 2026-03-17: Phase 6 Plan 01 executed — _create_gui() + _init_tables() decomposed in app.py and database.py
+- 2026-03-17: Phase 6 Plan 02 executed — CertificateGenerator.generate() decomposed into 5 sub-methods
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2025-03-17)
 **Core value:** Navigable, maintainable codebase — identical behavior and appearance
-**Current focus:** Phase 5 complete. Phase 6 (Method Decomposition) pending planning.
+**Current focus:** Phase 6 (Method Decomposition) in progress — Plan 01 complete.
 
 ## Phase Status
 | Phase | Name | Status | Plans |
@@ -45,7 +47,7 @@ See: .planning/PROJECT.md (updated 2025-03-17)
 | 3 | Dialogs, App Shell & Entry Point | Complete | 2/2 |
 | 4 | Bug Fixes & Dead Code Removal | Complete | 2/2 |
 | 5 | Deduplication & Code Quality | Complete | 2/2 |
-| 6 | Method Decomposition | Pending | 0/0 |
+| 6 | Method Decomposition | In Progress | 1/2 |
 
 ## Requirement Coverage
 - **Total v1 requirements:** 28
@@ -96,6 +98,8 @@ Critical information for any agent picking up this project:
 | 05-02 | configparser with VB6 INI adapter | VB6 [Key]=Value format incompatible with standard configparser sections |
 | 05-02 | format_2sigma_microns() distinct from format_microns() | 2sigma display (* 2000) is different from simple micron (* 1000) |
 | 05-02 | INI path CWD-relative, not __file__-relative | Matches project convention; __file__ resolves to minias/ after Phase 3 move |
+| 06-01 | _create_status_bar includes check_frame and Test Results label | Natural visual grouping between input panel and result grid |
+| 06-01 | _create_measure_tables has only MEASURES table | MEASURES_REGISTERED not in current schema — only 8 tables total |
 
 ## Performance Metrics
 
@@ -109,7 +113,8 @@ Critical information for any agent picking up this project:
 | 04-02 | 3min | 2 | 3 |
 | 05-01 | 5min | 2 | 3 |
 | 05-02 | 8min | 2 | 4 |
+| 06-01 | 3min | 2 | 2 |
 
 ---
-*Last updated: 2026-03-17 after Phase 5 Plan 02 execution — Phase 5 complete*
+*Last updated: 2026-03-17 after Phase 6 Plan 01 execution*
 
