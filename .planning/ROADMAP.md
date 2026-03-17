@@ -15,7 +15,7 @@
 **Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 01-01-PLAN.md — Create package scaffold + extract 5 dataclasses to models.py
+- [x] 01-01-PLAN.md — Create package scaffold + extract 5 dataclasses to models.py
 
 ### Success Criteria
 1. `minias/` directory exists with `__init__.py` (version string only) and `__main__.py` (stub that calls existing `main()`)
@@ -36,10 +36,10 @@ Plans:
 **Goal:** Extract all five service/backend classes (database, serial, calculator, excel, certificate) into dedicated modules following the bottom-up dependency order.
 
 **Requirements:** STRUCT-03, STRUCT-04, STRUCT-05, STRUCT-06, STRUCT-07
-**Plans:** 3 plans
+**Plans:** 1/3 plans complete
 
 Plans:
-- [ ] 02-01-PLAN.md — Extract serial_comm.py + calculator.py (leaf modules)
+- [x] 02-01-PLAN.md — Extract serial_comm.py + calculator.py (leaf modules)
 - [ ] 02-02-PLAN.md — Extract database.py (largest extraction)
 - [ ] 02-03-PLAN.md — Extract excel_export.py + certificate.py (export modules)
 
