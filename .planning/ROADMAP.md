@@ -36,6 +36,12 @@ Plans:
 **Goal:** Extract all five service/backend classes (database, serial, calculator, excel, certificate) into dedicated modules following the bottom-up dependency order.
 
 **Requirements:** STRUCT-03, STRUCT-04, STRUCT-05, STRUCT-06, STRUCT-07
+**Plans:** 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Extract serial_comm.py + calculator.py (leaf modules)
+- [ ] 02-02-PLAN.md — Extract database.py (largest extraction)
+- [ ] 02-03-PLAN.md — Extract excel_export.py + certificate.py (export modules)
 
 ### Success Criteria
 1. Each of the 5 modules exists under `minias/` and contains exactly the class extracted from the monolith, with identical logic
