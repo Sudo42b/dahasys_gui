@@ -89,40 +89,40 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STRUCT-01 | — | Pending |
-| STRUCT-02 | — | Pending |
-| STRUCT-03 | — | Pending |
-| STRUCT-04 | — | Pending |
-| STRUCT-05 | — | Pending |
-| STRUCT-06 | — | Pending |
-| STRUCT-07 | — | Pending |
-| STRUCT-08 | — | Pending |
-| STRUCT-09 | — | Pending |
-| STRUCT-10 | — | Pending |
-| STRUCT-11 | — | Pending |
-| DEDUP-01 | — | Pending |
-| DEDUP-02 | — | Pending |
-| DEDUP-03 | — | Pending |
-| BUGF-01 | — | Pending |
-| BUGF-02 | — | Pending |
-| BUGF-03 | — | Pending |
-| BUGF-04 | — | Pending |
-| DEAD-01 | — | Pending |
-| DEAD-02 | — | Pending |
-| DEAD-03 | — | Pending |
-| DEAD-04 | — | Pending |
-| METH-01 | — | Pending |
-| METH-02 | — | Pending |
-| METH-03 | — | Pending |
-| QUAL-01 | — | Pending |
-| QUAL-02 | — | Pending |
-| QUAL-03 | — | Pending |
+| STRUCT-01 | Phase 1 | Pending |
+| STRUCT-02 | Phase 1 | Pending |
+| STRUCT-03 | Phase 2 | Pending |
+| STRUCT-04 | Phase 2 | Pending |
+| STRUCT-05 | Phase 2 | Pending |
+| STRUCT-06 | Phase 2 | Pending |
+| STRUCT-07 | Phase 2 | Pending |
+| STRUCT-08 | Phase 3 | Pending |
+| STRUCT-09 | Phase 3 | Pending |
+| STRUCT-10 | Phase 3 | Pending |
+| STRUCT-11 | Phase 3 | Pending |
+| DEDUP-01 | Phase 5 | Pending |
+| DEDUP-02 | Phase 5 | Pending |
+| DEDUP-03 | Phase 5 | Pending |
+| BUGF-01 | Phase 4 | Pending |
+| BUGF-02 | Phase 4 | Pending |
+| BUGF-03 | Phase 4 | Pending |
+| BUGF-04 | Phase 4 | Pending |
+| DEAD-01 | Phase 4 | Pending |
+| DEAD-02 | Phase 4 | Pending |
+| DEAD-03 | Phase 4 | Pending |
+| DEAD-04 | Phase 4 | Pending |
+| METH-01 | Phase 6 | Pending |
+| METH-02 | Phase 6 | Pending |
+| METH-03 | Phase 6 | Pending |
+| QUAL-01 | Phase 5 | Pending |
+| QUAL-02 | Phase 5 | Pending |
+| QUAL-03 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 28 total
-- Mapped to phases: 0
-- Unmapped: 28
+- Mapped to phases: 28
+- Unmapped: 0
 
 ---
 *Requirements defined: 2025-03-17*
-*Last updated: 2025-03-17 after initial definition*
+*Last updated: 2025-03-17 — phase mapping complete*
