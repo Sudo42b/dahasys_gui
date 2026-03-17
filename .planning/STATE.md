@@ -37,7 +37,7 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2025-03-17)
 **Core value:** Navigable, maintainable codebase — identical behavior and appearance
-**Current focus:** Phase 6 (Method Decomposition) in progress — Plan 01 complete.
+**Current focus:** Phase 6 Plan 02 complete. Certificate generate() decomposed.
 
 ## Phase Status
 | Phase | Name | Status | Plans |
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2025-03-17)
 | 3 | Dialogs, App Shell & Entry Point | Complete | 2/2 |
 | 4 | Bug Fixes & Dead Code Removal | Complete | 2/2 |
 | 5 | Deduplication & Code Quality | Complete | 2/2 |
-| 6 | Method Decomposition | In Progress | 1/2 |
+| 6 | Method Decomposition | In Progress | 2/2 |
 
 ## Requirement Coverage
 - **Total v1 requirements:** 28
@@ -100,6 +100,8 @@ Critical information for any agent picking up this project:
 | 05-02 | INI path CWD-relative, not __file__-relative | Matches project convention; __file__ resolves to minias/ after Phase 3 move |
 | 06-01 | _create_status_bar includes check_frame and Test Results label | Natural visual grouping between input panel and result grid |
 | 06-01 | _create_measure_tables has only MEASURES table | MEASURES_REGISTERED not in current schema — only 8 tables total |
+| 06-02 | Styles dict (not tuple) for sub-method style passing | Named access cleaner than positional — styles["title"] vs styles[0] |
+| 06-02 | Extracted _build_z_table as separate method | Keeps _build_data_table under 100 lines |
 
 ## Performance Metrics
 
@@ -114,7 +116,8 @@ Critical information for any agent picking up this project:
 | 05-01 | 5min | 2 | 3 |
 | 05-02 | 8min | 2 | 4 |
 | 06-01 | 3min | 2 | 2 |
+| 06-02 | 3min | 1 | 1 |
 
 ---
-*Last updated: 2026-03-17 after Phase 6 Plan 01 execution*
+*Last updated: 2026-03-17 after Phase 6 Plan 02 execution*
 
