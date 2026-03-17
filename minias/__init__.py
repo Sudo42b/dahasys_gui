@@ -9,3 +9,4 @@ from minias.database import MiniasDatabase
 from minias.excel_export import ExcelExporter, EXCEL_AVAILABLE
 from minias.certificate import CertificateGenerator, PDF_AVAILABLE
 from minias.dialogs import LimitsDialog, SettingsDialog
+from minias.app import MiniasApp, main
