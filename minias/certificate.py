@@ -25,7 +25,7 @@ except ImportError:
     PDF_AVAILABLE = False
     print("Warning: reportlab not installed. PDF certificate disabled.")
 
-from minias.models import TestResult, AxisResult, CodeInfo
+from minias.models import TestResult, AxisResult, CodeInfo, format_microns, format_2sigma_microns
 
 
 class CertificateGenerator:
@@ -187,6 +187,9 @@ class CertificateGenerator:
                     ("BACKGROUND", (0, 0), (0, 0), colors.Color(0.85, 0.85, 0.85)),
                     ("BACKGROUND", (2, 0), (2, 0), colors.Color(0.85, 0.85, 0.85)),
                     ("BACKGROUND", (4, 0), (4, 0), colors.Color(0.85, 0.85, 0.85)),
+                    ("BACKGROUND", (0, 0), (0, 0), colors.Color(0.85, 0.85, 0.85)),
+                    ("BACKGROUND", (2, 0), (2, 0), colors.Color(0.85, 0.85, 0.85)),
+                    ("BACKGROUND", (4, 0), (4, 0), colors.Color(0.85, 0.85, 0.85)),
                 ]
             )
         )
@@ -226,14 +229,14 @@ class CertificateGenerator:
         axis_2sigmas = []
         for i in range(4):
             if i < len(axis_results):
-                axis_ranges.append(f"{axis_results[i].range_val:.1f}")
-                axis_2sigmas.append(f"{2.0 * axis_results[i].sigma:.1f}")
+                axis_ranges.append(f"{format_microns(axis_results[i].range_val)}")
+                axis_2sigmas.append(f"{format_2sigma_microns(axis_results[i].sigma)}")
             else:
                 axis_ranges.append("-")
                 axis_2sigmas.append("-")
 
         # Mean Range 계산
-        mean_range_val = f"{result.mean_range:.1f}"
+        mean_range_val = f"{format_microns(result.mean_range)}"
 
         # micron 단위를 데이터 셀에 병합 (9열 → 5열)
         def _fmt_micron(val: str) -> str:
@@ -249,18 +252,16 @@ class CertificateGenerator:
                 dir_labels[3],
             ],
             [
-                f"R({ncycles})={result.worst_range_limit:.1f}Micron",
+                f"R({ncycles})={int(result.worst_range_limit)} micron",
                 _fmt_micron(axis_ranges[0]),
                 _fmt_micron(axis_ranges[1]),
                 _fmt_micron(axis_ranges[2]),
                 _fmt_micron(axis_ranges[3]),
             ],
             [
-                f"R({ncycles})={result.worst_range_limit:.1f}Micron",
+                f"R({ncycles})={int(result.worst_range_limit)} micron",
                 f"{mean_range_val} micron",
-                "",
-                "",
-                "",
+                f"{sum([float(val) for val in axis_ranges])/len(axis_ranges)} micron",
             ],
         ]
 
@@ -270,21 +271,27 @@ class CertificateGenerator:
             colWidths=[40 * mm, col_w, col_w, col_w, col_w],
         )
         axis_table.setStyle(
-            TableStyle(
+            TableStyle( #세번째행은 합하여 평균값으로 표시, 첫번째열은 R(ncycles)=worst_range_limit micron으로 표시
                 [
                     ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
                     ("FONTSIZE", (0, 0), (-1, -1), 9),
                     ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                     ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                    ("ALIGN", (0, 0), (0, -1), "LEFT"),
+                    ("ALIGN", (0, 0), (0, -1), "CENTER"),
                     ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
                     ("BACKGROUND", (0, 0), (0, 0), colors.Color(0.85, 0.85, 0.85)),
                     ("BACKGROUND", (1, 0), (1, 0), colors.Color(0.85, 0.85, 0.85)),
+                    ("BACKGROUND", (2, 0), (2, 0), colors.Color(0.85, 0.85, 0.85)),
                     ("BACKGROUND", (3, 0), (3, 0), colors.Color(0.85, 0.85, 0.85)),
-                    ("BACKGROUND", (5, 0), (5, 0), colors.Color(0.85, 0.85, 0.85)),
-                    ("BACKGROUND", (7, 0), (7, 0), colors.Color(0.85, 0.85, 0.85)),
+                    ("BACKGROUND", (4, 0), (4, 0), colors.Color(0.85, 0.85, 0.85)),
+                    
+                    
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                     ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    # 3번쨰 행의 1, 2, 3, 4열을 병합
+                    ("SPAN", (1, 2), (4, 2)),
+                    ("SPAN", (1, 3), (4, 3)),
+                    ("SPAN", (1, 4), (4, 4)),
                 ]
             )
         )
@@ -295,15 +302,15 @@ class CertificateGenerator:
 
     def _build_z_table(self, elements: list) -> None:
         """Z축 방향 테이블 — Un direct direction (Z-) 및 Dia"""
-        # ========== Row 11-12: Un direct direction (Z-) — 5열 구조 ==========
-        col_w = 32 * mm
+        # ========== Row 11-12: Un direct direction (Z-) — 3열 구조 ==========
+        col_w = 32 * mm *2
         z_data = [
-            ["Un direct direction", "Z-", "", "Dia", ""],
-            ["", "Micron", "", "Micron", ""],
+            ["Un direct direction", "Z-", "Dia"], #가운데 정렬된 헤더
+            ["", "micron", "micron"],
         ]
         z_table = Table(
             z_data,
-            colWidths=[40 * mm, col_w, col_w, col_w, col_w],
+            colWidths=[40 * mm, col_w, col_w],
         )
         z_table.setStyle(
             TableStyle(
@@ -312,9 +319,11 @@ class CertificateGenerator:
                     ("FONTSIZE", (0, 0), (-1, -1), 9),
                     ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                     ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                    ("ALIGN", (0, 0), (0, -1), "LEFT"),
+                    ("ALIGN", (0, 0), (0, -1), "CENTER"),
                     ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.95, 0.95, 0.95)),
+                    ("BACKGROUND", (0, 0), (0, 0), colors.Color(0.85, 0.85, 0.85)),
+                    ("BACKGROUND", (1, 0), (1, 0), colors.Color(0.85, 0.85, 0.85)),
+                    ("BACKGROUND", (2, 0), (2, 0), colors.Color(0.85, 0.85, 0.85)),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                     ("TOPPADDING", (0, 0), (-1, -1), 4),
                 ]

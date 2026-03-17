@@ -399,6 +399,7 @@ class MiniasDatabase:
             ),
         )
         self.conn.commit()
+        self.conn.commit()
 
     # --- TEST_RESULTS ---
     def save_test_result(self, result: TestResult) -> int:

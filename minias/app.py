@@ -20,6 +20,7 @@ from minias.models import (
     LimitInfo,
     mm_to_microns,
     format_microns,
+    format_2sigma_microns,
 )
 from minias.serial_comm import SerialCommunicator, SERIAL_AVAILABLE
 from minias.calculator import TestCalculator
@@ -753,8 +754,8 @@ class MiniasApp:
                 item,
                 values=(
                     str(axis),
-                    f"{cur_range:.1f}",
-                    f"{two_sigma:.1f}",
+                    f"{format_microns(cur_range)}",
+                    f"{format_2sigma_microns(cur_sigma)}",
                     f"{cycle}/{ncycles}",
                     "",
                     "",
@@ -771,8 +772,8 @@ class MiniasApp:
                 item,
                 values=(
                     str(axis),
-                    f"{range_val:.1f}",
-                    f"{sigma:.1f}",
+                    f"{format_microns(range_val)}",
+                    f"{format_2sigma_microns(sigma)}",
                     result,
                     "",
                     "",
@@ -814,8 +815,8 @@ class MiniasApp:
                 children[4],
                 values=(
                     "Mean",
-                    f"{mean_range:.1f}",
-                    f"{mean_sigma:.1f}",
+                    f"{format_microns(mean_range)}",
+                    f"{format_2sigma_microns(mean_sigma)}",
                     "",
                     "",
                     "",
@@ -827,8 +828,8 @@ class MiniasApp:
                 children[5],
                 values=(
                     "Worst",
-                    f"{worst_range:.1f}",
-                    f"{worst_sigma:.1f}",
+                    f"{format_microns(worst_range)}",
+                    f"{format_2sigma_microns(worst_sigma)}",
                     overall_result,
                     "",
                     "",
@@ -1183,8 +1184,8 @@ class MiniasApp:
                     item,
                     values=(
                         str(axis_num),
-                        f"{ar.range_val:.1f}",
-                        f"{ar.sigma:.1f}",
+                        f"{format_microns(ar.range_val)}",
+                        f"{format_2sigma_microns(ar.sigma)}",
                         ar.result,
                         "",
                         "",
@@ -1198,8 +1199,8 @@ class MiniasApp:
                 children[4],
                 values=(
                     "Mean",
-                    f"{result.mean_range:.1f}",
-                    f"{result.mean_sigma:.1f}",
+                    f"{format_microns(result.mean_range)}",
+                    f"{format_2sigma_microns(result.mean_sigma)}",
                     "",
                     "",
                     "",
@@ -1210,8 +1211,8 @@ class MiniasApp:
                 children[5],
                 values=(
                     "Worst",
-                    f"{result.worst_range:.1f}",
-                    f"{result.worst_sigma:.1f}",
+                    f"{format_microns(result.worst_range)}",
+                    f"{format_2sigma_microns(result.worst_sigma)}",
                     result.result,
                     "",
                     "",
@@ -1238,6 +1239,10 @@ class MiniasApp:
 
         result = self.db.get_test_result(self.current_id)
         axis_results = self.db.get_axis_results(self.current_id)
+
+        if not result:
+            messagebox.showerror("Error", f"Failed to load test result for ID {self.current_id}")
+            return
 
         if result:
             # 코드 정보 가져오기
