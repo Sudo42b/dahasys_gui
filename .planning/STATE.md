@@ -2,23 +2,23 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 5
-current_plan: 2 of 2
+current_phase: 6
+current_plan: 0 of 0
 status: in-progress
-last_updated: "2026-03-17T05:45:22Z"
+last_updated: "2026-03-17T05:59:11Z"
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State: MINIAS Refactor
 
 ## Status
-**Current Phase:** 5
-**Current Plan:** 2 of 2
-**Overall Progress:** █████████░ ~90%
+**Current Phase:** 6
+**Current Plan:** 0 of 0
+**Overall Progress:** ██████████ ~100%
 
 ## Session Log
 - 2025-03-17: Phase 1 context gathered → `.planning/phases/01-package-scaffold-leaf-models/01-CONTEXT.md`
@@ -30,11 +30,12 @@ progress:
 - 2026-03-17: Phase 3 Plan 02 executed — MiniasApp moved to minias/app.py, entry point updated, monolith dissolved; Phase 3 complete
 - 2026-03-17: Phase 4 Plan 02 executed — 4 dead code items removed (get_samples, send_command, EXCEL_SETUP, template_path)
 - 2026-03-17: Phase 5 Plan 01 executed — safe_get closures consolidated, port lists deduplicated, inline imports removed
+- 2026-03-17: Phase 5 Plan 02 executed — stop-save dedup, unit conversion centralized, configparser INI; Phase 5 complete
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2025-03-17)
 **Core value:** Navigable, maintainable codebase — identical behavior and appearance
-**Current focus:** Phase 5 in progress (05-01 deduplication done, 05-02 pending)
+**Current focus:** Phase 5 complete. Phase 6 (Method Decomposition) pending planning.
 
 ## Phase Status
 | Phase | Name | Status | Plans |
@@ -42,8 +43,8 @@ See: .planning/PROJECT.md (updated 2025-03-17)
 | 1 | Package Scaffold & Leaf Models | Complete | 1/1 |
 | 2 | Service Module Extraction | Complete | 3/3 |
 | 3 | Dialogs, App Shell & Entry Point | Complete | 2/2 |
-| 4 | Bug Fixes & Dead Code Removal | In Progress | 1/2 |
-| 5 | Deduplication & Code Quality | In Progress | 1/2 |
+| 4 | Bug Fixes & Dead Code Removal | Complete | 2/2 |
+| 5 | Deduplication & Code Quality | Complete | 2/2 |
 | 6 | Method Decomposition | Pending | 0/0 |
 
 ## Requirement Coverage
@@ -92,6 +93,9 @@ Critical information for any agent picking up this project:
 | 04-02 | Removed 4 confirmed-dead items in 2 atomic commits | Grouped by file for clean history |
 | 05-01 | _safe_get as module-level function, not class method | No dependency on self — pure function of row, column_names, and lookup params |
 | 05-01 | FALLBACK_PORTS[:4] in _get_port_list() | Preserves original shorter 4-port fallback behavior |
+| 05-02 | configparser with VB6 INI adapter | VB6 [Key]=Value format incompatible with standard configparser sections |
+| 05-02 | format_2sigma_microns() distinct from format_microns() | 2sigma display (* 2000) is different from simple micron (* 1000) |
+| 05-02 | INI path CWD-relative, not __file__-relative | Matches project convention; __file__ resolves to minias/ after Phase 3 move |
 
 ## Performance Metrics
 
@@ -104,7 +108,8 @@ Critical information for any agent picking up this project:
 | 03-02 | 8min | 2 | 5 |
 | 04-02 | 3min | 2 | 3 |
 | 05-01 | 5min | 2 | 3 |
+| 05-02 | 8min | 2 | 4 |
 
 ---
-*Last updated: 2026-03-17 after Phase 5 Plan 01 execution — simple deduplication & import cleanup complete*
+*Last updated: 2026-03-17 after Phase 5 Plan 02 execution — Phase 5 complete*
 
