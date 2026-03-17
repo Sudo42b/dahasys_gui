@@ -7,6 +7,17 @@ from typing import List, Optional, Dict, Tuple
 from minias.models import TestResult, AxisResult, CodeInfo, SetupInfo, LimitInfo
 
 
+def _safe_get(row, column_names, name, alt_name=None, default=None):
+    """행 데이터에서 컬럼값 안전 조회"""
+    if name in column_names:
+        val = row[name]
+        return val if val is not None else default
+    if alt_name and alt_name in column_names:
+        val = row[alt_name]
+        return val if val is not None else default
+    return default
+
+
 class MiniasDatabase:
     """SQLite 데이터베이스 관리"""
 
@@ -189,27 +200,26 @@ class MiniasDatabase:
         )
 
         for row in cursor.fetchall():
-
-            def safe_get(name, alt_name=None, default=None):
-                """컬럼이 존재하면 값 반환"""
-                if name in col_names:
-                    val = row[name]
-                    return val if val is not None else default
-                if alt_name and alt_name in col_names:
-                    val = row[alt_name]
-                    return val if val is not None else default
-                return default
-
             results.append(
                 CodeInfo(
-                    code=safe_get("CODE", default=""),
-                    naxis=int(safe_get("NAXIS", default=4) or 4),
-                    probe_type=safe_get("PROBE_TYPE", default=""),
-                    x_plus_dir=int(safe_get("X_PLUS_DIR", "XPLUS_DIR", 1) or 1),
-                    x_minus_dir=int(safe_get("X_MINUS_DIR", "XMINUS_DIR", 1) or 1),
-                    y_plus_dir=int(safe_get("Y_PLUS_DIR", "YPLUS_DIR", 1) or 1),
-                    y_minus_dir=int(safe_get("Y_MINUS_DIR", "YMINUS_DIR", 1) or 1),
-                    z_minus_dir=int(safe_get("Z_MINUS_DIR", "ZMINUS_DIR", 1) or 1),
+                    code=_safe_get(row, col_names, "CODE", default=""),
+                    naxis=int(_safe_get(row, col_names, "NAXIS", default=4) or 4),
+                    probe_type=_safe_get(row, col_names, "PROBE_TYPE", default=""),
+                    x_plus_dir=int(
+                        _safe_get(row, col_names, "X_PLUS_DIR", "XPLUS_DIR", 1) or 1
+                    ),
+                    x_minus_dir=int(
+                        _safe_get(row, col_names, "X_MINUS_DIR", "XMINUS_DIR", 1) or 1
+                    ),
+                    y_plus_dir=int(
+                        _safe_get(row, col_names, "Y_PLUS_DIR", "YPLUS_DIR", 1) or 1
+                    ),
+                    y_minus_dir=int(
+                        _safe_get(row, col_names, "Y_MINUS_DIR", "YMINUS_DIR", 1) or 1
+                    ),
+                    z_minus_dir=int(
+                        _safe_get(row, col_names, "Z_MINUS_DIR", "ZMINUS_DIR", 1) or 1
+                    ),
                 )
             )
         return results
@@ -230,19 +240,10 @@ class MiniasDatabase:
                 [desc[0] for desc in cursor.description] if cursor.description else []
             )
 
-            def safe_get(name, alt_name=None, default=None):
-                if name in col_names:
-                    val = row[name]
-                    return val if val is not None else default
-                if alt_name and alt_name in col_names:
-                    val = row[alt_name]
-                    return val if val is not None else default
-                return default
-
             return CodeInfo(
-                code=safe_get("CODE", default=""),
-                naxis=int(safe_get("NAXIS", default=4) or 4),
-                probe_type=safe_get("PROBE_TYPE", default=""),
+                code=_safe_get(row, col_names, "CODE", default=""),
+                naxis=int(_safe_get(row, col_names, "NAXIS", default=4) or 4),
+                probe_type=_safe_get(row, col_names, "PROBE_TYPE", default=""),
             )
         return None
 
@@ -344,22 +345,23 @@ class MiniasDatabase:
             # 컬럼 이름 목록 가져오기 (동적으로 처리)
             col_names = [desc[0] for desc in cursor.description]
 
-            def safe_get(name, default=0.0):
-                """컬럼이 존재하면 값 반환, 없으면 기본값"""
-                if name in col_names:
-                    val = row[name]
-                    return val if val is not None else default
-                return default
-
             return LimitInfo(
-                test_type=safe_get("TEST_TYPE", "ST"),
-                mean_sigma=safe_get("MEAN_SIGMA"),
-                mean_range=safe_get("MEAN_RANGE"),
-                worst_range=safe_get("WORST_RANGE"),
-                mean_range_performance=safe_get("MEAN_RANGE_PERFORMANCE"),
-                worst_range_performance=safe_get("WORST_RANGE_PERFORMANCE"),
-                mean_range_second=safe_get("MEAN_RANGE_SECOND"),
-                worst_range_second=safe_get("WORST_RANGE_SECOND"),
+                test_type=_safe_get(row, col_names, "TEST_TYPE", default="ST"),
+                mean_sigma=_safe_get(row, col_names, "MEAN_SIGMA", default=0.0),
+                mean_range=_safe_get(row, col_names, "MEAN_RANGE", default=0.0),
+                worst_range=_safe_get(row, col_names, "WORST_RANGE", default=0.0),
+                mean_range_performance=_safe_get(
+                    row, col_names, "MEAN_RANGE_PERFORMANCE", default=0.0
+                ),
+                worst_range_performance=_safe_get(
+                    row, col_names, "WORST_RANGE_PERFORMANCE", default=0.0
+                ),
+                mean_range_second=_safe_get(
+                    row, col_names, "MEAN_RANGE_SECOND", default=0.0
+                ),
+                worst_range_second=_safe_get(
+                    row, col_names, "WORST_RANGE_SECOND", default=0.0
+                ),
             )
         return None
 
@@ -434,13 +436,7 @@ class MiniasDatabase:
                 [desc[0] for desc in cursor.description] if cursor.description else []
             )
 
-            def safe_get(name, default=None):
-                if name in col_names:
-                    val = row[name]
-                    return val if val is not None else default
-                return default
-
-            date_str = safe_get("DATE")
+            date_str = _safe_get(row, col_names, "DATE")
             try:
                 date_val = (
                     datetime.fromisoformat(date_str) if date_str else datetime.now()
@@ -449,21 +445,35 @@ class MiniasDatabase:
                 date_val = datetime.now()
 
             return TestResult(
-                id_col=safe_get("ID_COL", 0),
+                id_col=_safe_get(row, col_names, "ID_COL", default=0),
                 date=date_val,
-                code=safe_get("CODE", ""),
-                serial_number=safe_get("SERIAL_NUMBER", ""),
-                operator=safe_get("OPERATOR", ""),
-                test_type=safe_get("TEST", "ST"),
-                result=safe_get("RESULT", ""),
-                mean_sigma=float(safe_get("MEAN_SIGMA", 0.0) or 0.0),
-                mean_range=float(safe_get("MEAN_RANGE", 0.0) or 0.0),
-                worst_sigma=float(safe_get("WORST_SIGMA", 0.0) or 0.0),
-                worst_range=float(safe_get("WORST_RANGE", 0.0) or 0.0),
-                mean_sigma_limit=float(safe_get("MEAN_SIGMA_LIMIT", 0.0) or 0.0),
-                mean_range_limit=float(safe_get("MEAN_RANGE_LIMIT", 0.0) or 0.0),
-                worst_range_limit=float(safe_get("WORST_RANGE_LIMIT", 0.0) or 0.0),
-                second_test=safe_get("SECOND_TEST", "N"),
+                code=_safe_get(row, col_names, "CODE", default=""),
+                serial_number=_safe_get(row, col_names, "SERIAL_NUMBER", default=""),
+                operator=_safe_get(row, col_names, "OPERATOR", default=""),
+                test_type=_safe_get(row, col_names, "TEST", default="ST"),
+                result=_safe_get(row, col_names, "RESULT", default=""),
+                mean_sigma=float(
+                    _safe_get(row, col_names, "MEAN_SIGMA", default=0.0) or 0.0
+                ),
+                mean_range=float(
+                    _safe_get(row, col_names, "MEAN_RANGE", default=0.0) or 0.0
+                ),
+                worst_sigma=float(
+                    _safe_get(row, col_names, "WORST_SIGMA", default=0.0) or 0.0
+                ),
+                worst_range=float(
+                    _safe_get(row, col_names, "WORST_RANGE", default=0.0) or 0.0
+                ),
+                mean_sigma_limit=float(
+                    _safe_get(row, col_names, "MEAN_SIGMA_LIMIT", default=0.0) or 0.0
+                ),
+                mean_range_limit=float(
+                    _safe_get(row, col_names, "MEAN_RANGE_LIMIT", default=0.0) or 0.0
+                ),
+                worst_range_limit=float(
+                    _safe_get(row, col_names, "WORST_RANGE_LIMIT", default=0.0) or 0.0
+                ),
+                second_test=_safe_get(row, col_names, "SECOND_TEST", default="N"),
             )
         return None
 
