@@ -62,6 +62,11 @@ Plans:
 **Goal:** Extract dialog classes, move the remaining MiniasApp into `minias/app.py`, and wire the new package entry point so `uv run minias` works through the package.
 
 **Requirements:** STRUCT-08, STRUCT-09, STRUCT-10, STRUCT-11
+**Plans:** 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Extract LimitsDialog + SettingsDialog to minias/dialogs.py
+- [ ] 03-02-PLAN.md — Move MiniasApp to minias/app.py, update entry point, dissolve monolith
 
 ### Success Criteria
 1. `minias/dialogs.py` contains LimitsDialog and SettingsDialog with correct imports from sibling modules
