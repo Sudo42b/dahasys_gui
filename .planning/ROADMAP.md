@@ -116,6 +116,11 @@ Plans:
 **Goal:** Consolidate duplicated code patterns and improve code quality across the extracted modules.
 
 **Requirements:** DEDUP-01, DEDUP-02, DEDUP-03, QUAL-01, QUAL-02, QUAL-03
+**Plans:** 2 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Consolidate safe_get closures + fallback port lists + inline imports
+- [ ] 05-02-PLAN.md — Deduplicate stop-and-save + centralize unit conversion + configparser INI
 
 ### Success Criteria
 1. A single `safe_get()` function exists (in `database.py` or a `utils.py`) — no duplicated closures remain anywhere
