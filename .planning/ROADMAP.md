@@ -143,6 +143,11 @@ Plans:
 **Goal:** Break up the three oversized methods into focused, well-named sub-methods for readability and navigability.
 
 **Requirements:** METH-01, METH-02, METH-03
+**Plans:** 2 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Decompose _create_gui() + _init_tables() (app.py + database.py)
+- [ ] 06-02-PLAN.md — Decompose CertificateGenerator.generate() (certificate.py)
 
 ### Success Criteria
 1. `_create_gui()` is decomposed into 4+ named builder methods (`_create_toolbar`, `_create_input_panel`, `_create_status_bar`, `_create_grid`, etc.) — no single method exceeds ~80 lines
