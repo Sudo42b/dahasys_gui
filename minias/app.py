@@ -192,7 +192,13 @@ class MiniasApp:
 
     def _create_gui(self):
         """GUI 구성요소 생성"""
-        # 상단 버튼 프레임
+        self._create_toolbar()
+        self._create_input_panel()
+        self._create_status_bar()
+        self._create_result_grid()
+
+    def _create_toolbar(self):
+        """상단 버튼 프레임 생성"""
         btn_frame = ttk.Frame(self.root, padding="5")
         btn_frame.pack(fill=tk.X)
 
@@ -229,7 +235,8 @@ class MiniasApp:
         )
         self.btn_settings.pack(side=tk.RIGHT, padx=5)
 
-        # 입력 프레임
+    def _create_input_panel(self):
+        """입력 프레임 생성 (코드, 작업자, 시리얼 번호 등)"""
         input_frame = ttk.Frame(self.root, padding="5")
         input_frame.pack(fill=tk.X)
 
@@ -312,6 +319,8 @@ class MiniasApp:
         self.combo_id.pack(side=tk.LEFT, padx=5)
         self.combo_id.bind("<<ComboboxSelected>>", self._on_id_selected)
 
+    def _create_status_bar(self):
+        """상태 표시 프레임 생성 (시안색 배경, 체크 옵션, 테스트 설정)"""
         # 상태 표시 프레임 (시안색 배경)
         status_frame = tk.Frame(self.root, bg="#80FFFF", height=60)
         status_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -359,7 +368,8 @@ class MiniasApp:
             anchor=tk.W, padx=10
         )
 
-        # 결과 그리드 (Treeview)
+    def _create_result_grid(self):
+        """결과 그리드 생성 (Treeview + 하단 상태바)"""
         grid_frame = ttk.Frame(self.root, padding="5")
         grid_frame.pack(fill=tk.BOTH, expand=True, padx=5)
 
