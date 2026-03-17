@@ -12,6 +12,10 @@
 **Goal:** Create the `minias/` package structure and extract the zero-dependency dataclass models as the first module.
 
 **Requirements:** STRUCT-01, STRUCT-02
+**Plans:** 1 plan
+
+Plans:
+- [ ] 01-01-PLAN.md — Create package scaffold + extract 5 dataclasses to models.py
 
 ### Success Criteria
 1. `minias/` directory exists with `__init__.py` (version string only) and `__main__.py` (stub that calls existing `main()`)
