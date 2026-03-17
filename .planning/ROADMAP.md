@@ -89,6 +89,11 @@ Plans:
 **Goal:** Fix the 4 known bugs and remove 4 pieces of dead code identified during research — all in the newly extracted modules.
 
 **Requirements:** BUGF-01, BUGF-02, BUGF-03, BUGF-04, DEAD-01, DEAD-02, DEAD-03, DEAD-04
+**Plans:** 2 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Fix 4 bugs (indentation, tree_results, duplicate imports, unused import)
+- [ ] 04-02-PLAN.md — Remove 4 dead code items (get_samples, send_command, EXCEL_SETUP, template_path)
 
 ### Success Criteria
 1. `_on_print_certificate()` indentation bug is fixed — cancelling the file dialog no longer executes certificate generation logic
