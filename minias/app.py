@@ -7,7 +7,6 @@ from typing import List, Optional, Dict, Tuple
 import threading
 import queue
 import os
-import configparser
 
 # 로컬 모듈
 from minias.models import TestResult, AxisResult, CodeInfo, SetupInfo, LimitInfo
