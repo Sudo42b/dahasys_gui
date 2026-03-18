@@ -46,8 +46,69 @@ class MiniasDatabase:
         self._create_measure_tables(cursor)
         self.conn.commit()
 
+        # LIMITS 테이블 PRIMARY KEY 마이그레이션
+        self._migrate_limits_table()
+
         # 기본 데이터 삽입
         self._insert_default_data()
+
+    def _migrate_limits_table(self):
+        """LIMITS 테이블 PRIMARY KEY 마이그레이션
+
+        기존 DB에서 LIMITS 테이블이 PRIMARY KEY 없이 생성된 경우,
+        중복 행을 정리하고 PRIMARY KEY가 있는 새 테이블로 교체한다.
+        """
+        cursor = self.conn.cursor()
+
+        # 현재 LIMITS 테이블의 CREATE 문 확인
+        cursor.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='LIMITS'"
+        )
+        row = cursor.fetchone()
+        if not row:
+            return  # 테이블이 없으면 _create_config_tables에서 생성됨
+
+        create_sql = row[0] or ""
+        if "PRIMARY KEY" in create_sql.upper():
+            return  # 이미 PRIMARY KEY가 있으면 마이그레이션 불필요
+
+        print("LIMITS 테이블 마이그레이션: PRIMARY KEY 추가 및 중복 행 정리...")
+
+        # 새 테이블 생성 (PRIMARY KEY 포함)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS LIMITS_NEW (
+                TEST_TYPE VARCHAR(2) PRIMARY KEY,
+                MEAN_SIGMA REAL,
+                MEAN_RANGE REAL,
+                WORST_RANGE REAL,
+                MEAN_RANGE_PERFORMANCE REAL,
+                WORST_RANGE_PERFORMANCE REAL,
+                MEAN_RANGE_SECOND REAL,
+                WORST_RANGE_SECOND REAL
+            )
+        """)
+
+        # 각 TEST_TYPE별 최신 행(rowid 가장 큰 행)만 새 테이블로 복사
+        cursor.execute("""
+            INSERT OR REPLACE INTO LIMITS_NEW
+            SELECT TEST_TYPE, MEAN_SIGMA, MEAN_RANGE, WORST_RANGE,
+                   MEAN_RANGE_PERFORMANCE, WORST_RANGE_PERFORMANCE,
+                   MEAN_RANGE_SECOND, WORST_RANGE_SECOND
+            FROM LIMITS
+            WHERE rowid IN (
+                SELECT MAX(rowid) FROM LIMITS GROUP BY TEST_TYPE
+            )
+        """)
+
+        # 기존 테이블 삭제 및 이름 변경
+        cursor.execute("DROP TABLE LIMITS")
+        cursor.execute("ALTER TABLE LIMITS_NEW RENAME TO LIMITS")
+        self.conn.commit()
+
+        # 마이그레이션 결과 확인
+        cursor.execute("SELECT COUNT(*) FROM LIMITS")
+        count = cursor.fetchone()[0]
+        print(f"LIMITS 테이블 마이그레이션 완료: {count}개 행 (중복 제거)")
 
     def _create_core_tables(self, cursor):
         """기본 테이블 생성 (OPERATORS, CODES)"""
@@ -175,10 +236,10 @@ class MiniasDatabase:
             VALUES ('ST', 100, 4, 1, 1, 1)
         """)
 
-        # 기본 Limits 추가
+        # 기본 Limits 추가 (micron 단위)
         cursor.execute("""
             INSERT OR IGNORE INTO LIMITS (TEST_TYPE, MEAN_SIGMA, MEAN_RANGE, WORST_RANGE)
-            VALUES ('ST', 0.005, 0.010, 0.015)
+            VALUES ('ST', 5.0, 10.0, 15.0)
         """)
 
         self.conn.commit()
@@ -398,7 +459,6 @@ class MiniasDatabase:
                 limits.worst_range_second,
             ),
         )
-        self.conn.commit()
         self.conn.commit()
 
     # --- TEST_RESULTS ---

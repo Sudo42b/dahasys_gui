@@ -18,7 +18,6 @@ from minias.models import (
     CodeInfo,
     SetupInfo,
     LimitInfo,
-    mm_to_microns,
     format_microns,
     format_2sigma_microns,
 )
@@ -551,6 +550,7 @@ class MiniasApp:
         self.axis_results = []
         self.current_axis = 1
         self.current_cycle = 1
+        self.current_id = 0
         self.db.clear_measures()
         self._init_grid_rows()
 
@@ -749,13 +749,12 @@ class MiniasApp:
         children = self.tree.get_children()
         if axis <= len(children):
             item = children[axis - 1]
-            two_sigma = 2.0 * cur_sigma
             self.tree.item(
                 item,
                 values=(
                     str(axis),
-                    f"{format_microns(cur_range)}",
-                    f"{format_2sigma_microns(cur_sigma)}",
+                    format_microns(cur_range),
+                    format_2sigma_microns(cur_sigma),
                     f"{cycle}/{ncycles}",
                     "",
                     "",
@@ -786,97 +785,105 @@ class MiniasApp:
         self.is_testing = False
         self._reset_buttons()
 
-        # 전체 결과 계산
-        all_sigmas = [ar.sigma for ar in self.axis_results]
-        all_ranges = [ar.range_val for ar in self.axis_results]
+        try:
+            # 전체 결과 계산
+            all_sigmas = [ar.sigma for ar in self.axis_results]
+            all_ranges = [ar.range_val for ar in self.axis_results]
 
-        mean_sigma = self.calculator.calculate_mean(all_sigmas) if all_sigmas else 0
-        mean_range = self.calculator.calculate_mean(all_ranges) if all_ranges else 0
-        worst_sigma = max(all_sigmas) if all_sigmas else 0
-        worst_range = max(all_ranges) if all_ranges else 0
+            mean_sigma = self.calculator.calculate_mean(all_sigmas) if all_sigmas else 0
+            mean_range = self.calculator.calculate_mean(all_ranges) if all_ranges else 0
+            worst_sigma = max(all_sigmas) if all_sigmas else 0
+            worst_range = max(all_ranges) if all_ranges else 0
 
-        # 전체 판정
-        overall_result = "OK"
-        if self.limits:
-            overall_result = self.calculator.evaluate_overall_result(
-                mean_sigma,
-                mean_range,
-                worst_range,
-                self.limits,
-                self.var_check_sigma.get(),
-                self.var_check_range.get(),
+            # 전체 판정
+            overall_result = "OK"
+            if self.limits:
+                overall_result = self.calculator.evaluate_overall_result(
+                    mean_sigma,
+                    mean_range,
+                    worst_range,
+                    self.limits,
+                    self.var_check_sigma.get(),
+                    self.var_check_range.get(),
+                )
+
+            # Mean, Worst 행 업데이트 (2Sigma = 2 * sigma 표시)
+            children = self.tree.get_children()
+            if len(children) >= 6:
+                # Mean 행
+                self.tree.item(
+                    children[4],
+                    values=(
+                        "Mean",
+                        f"{format_microns(mean_range)}",
+                        f"{format_2sigma_microns(mean_sigma)}",
+                        "",
+                        "",
+                        "",
+                        "",
+                    ),
+                )
+                # Worst 행
+                self.tree.item(
+                    children[5],
+                    values=(
+                        "Worst",
+                        f"{format_microns(worst_range)}",
+                        f"{format_2sigma_microns(worst_sigma)}",
+                        overall_result,
+                        "",
+                        "",
+                        "",
+                    ),
+                )
+
+            # 결과 저장
+            result = TestResult(
+                date=datetime.now(),
+                code=self.var_code.get(),
+                serial_number=self.var_serial_number.get(),
+                operator=self.var_operator.get(),
+                test_type="ST",
+                result=overall_result,
+                mean_sigma=mean_sigma,
+                mean_range=mean_range,
+                worst_sigma=worst_sigma,
+                worst_range=worst_range,
+                mean_sigma_limit=self.limits.mean_sigma if self.limits else 0,
+                mean_range_limit=self.limits.mean_range if self.limits else 0,
+                worst_range_limit=self.limits.worst_range if self.limits else 0,
             )
 
-        # Mean, Worst 행 업데이트 (2Sigma = 2 * sigma 표시)
-        children = self.tree.get_children()
-        if len(children) >= 6:
-            # Mean 행
-            self.tree.item(
-                children[4],
-                values=(
-                    "Mean",
-                    f"{format_microns(mean_range)}",
-                    f"{format_2sigma_microns(mean_sigma)}",
-                    "",
-                    "",
-                    "",
-                    "",
-                ),
-            )
-            # Worst 행
-            self.tree.item(
-                children[5],
-                values=(
-                    "Worst",
-                    f"{format_microns(worst_range)}",
-                    f"{format_2sigma_microns(worst_sigma)}",
-                    overall_result,
-                    "",
-                    "",
-                    "",
-                ),
-            )
+            self.current_id = self.db.save_test_result(result)
+            self.var_id_col.set(f"Id_col: {self.current_id}")
 
-        # 결과 저장
-        result = TestResult(
-            date=datetime.now(),
-            code=self.var_code.get(),
-            serial_number=self.var_serial_number.get(),
-            operator=self.var_operator.get(),
-            test_type="ST",
-            result=overall_result,
-            mean_sigma=mean_sigma,
-            mean_range=mean_range,
-            worst_sigma=worst_sigma,
-            worst_range=worst_range,
-            mean_sigma_limit=self.limits.mean_sigma if self.limits else 0,
-            mean_range_limit=self.limits.mean_range if self.limits else 0,
-            worst_range_limit=self.limits.worst_range if self.limits else 0,
-        )
+            # 축별 결과 저장
+            for ar in self.axis_results:
+                ar.id_col = self.current_id
+                self.db.save_axis_result(ar)
 
-        self.current_id = self.db.save_test_result(result)
-        self.var_id_col.set(f"Id_col: {self.current_id}")
+            # 샘플 데이터 저장
+            for axis, values in self.measurements.items():
+                for cycle, value in enumerate(values, 1):
+                    self.db.save_sample(self.current_id, axis, cycle, value)
 
-        # 축별 결과 저장
-        for ar in self.axis_results:
-            ar.id_col = self.current_id
-            self.db.save_axis_result(ar)
+            # 상태 업데이트
+            result_text = "PASS" if overall_result == "OK" else "FAIL"
+            self.var_status.set(f"Test Complete - {result_text}")
+            self.statusbar.config(text=f"Test saved with ID: {self.current_id}")
 
-        # 샘플 데이터 저장
-        for axis, values in self.measurements.items():
-            for cycle, value in enumerate(values, 1):
-                self.db.save_sample(self.current_id, axis, cycle, value)
+            # ID 목록 새로고침
+            self._refresh_id_list()
 
-        # 상태 업데이트
-        result_text = "PASS" if overall_result == "OK" else "FAIL"
-        self.var_status.set(f"Test Complete - {result_text}")
-        self.statusbar.config(text=f"Test saved with ID: {self.current_id}")
+            # 시리얼 연결 해제
+            self.serial.disconnect()
 
-        # ID 목록 새로고침
-        self._refresh_id_list()
+        except Exception as e:
+            import traceback
 
-        # 시리얼 연결 해제
-        self.serial.disconnect()
+            traceback.print_exc()
+            messagebox.showerror("Error", f"테스트 결과 저장 중 오류 발생: {e}")
+            self.var_status.set("Test Complete - Save Error")
 
     def _reset_buttons(self):
         """버튼 상태 초기화 — Start 복원"""
@@ -1009,18 +1016,12 @@ class MiniasApp:
             axis_results = self.db.get_axis_results(self.current_id)
 
             if not result:
-                messagebox.showerror("Error", "Test result not found in database")
-                return
-
-            if not axis_results:
                 messagebox.showerror(
-                    "Error",
-                    f"No axis results found for test ID {self.current_id}.\n"
-                    "The test may not have completed properly.",
+                    "Error", f"Failed to load test result for ID {self.current_id}"
                 )
                 return
 
-            # 코드 정보 가져오기 (current_code_info가 없으면 DB에서 조회)
+            # 코드 정보 가져오기
             code_info = self.current_code_info
             if code_info is None and result.code:
                 code_info = self.db.get_code_info(result.code)
@@ -1241,49 +1242,50 @@ class MiniasApp:
         axis_results = self.db.get_axis_results(self.current_id)
 
         if not result:
-            messagebox.showerror("Error", f"Failed to load test result for ID {self.current_id}")
+            messagebox.showerror(
+                "Error", f"Failed to load test result for ID {self.current_id}"
+            )
             return
 
-        if result:
-            # 코드 정보 가져오기
-            code_info = self.current_code_info
-            if code_info is None and result.code:
-                code_info = self.db.get_code_info(result.code)
-            if code_info is None:
-                code_info = CodeInfo(code=result.code, probe_type="")
+        # 코드 정보 가져오기
+        code_info = self.current_code_info
+        if code_info is None and result.code:
+            code_info = self.db.get_code_info(result.code)
+        if code_info is None:
+            code_info = CodeInfo(code=result.code, probe_type="")
 
-            # 임시 파일로 PDF 생성
-            import tempfile
+        # 임시 파일로 PDF 생성
+        import tempfile
 
-            temp_dir = tempfile.gettempdir()
-            temp_path = os.path.join(temp_dir, f"Certificate_{self.current_id}.pdf")
+        temp_dir = tempfile.gettempdir()
+        temp_path = os.path.join(temp_dir, f"Certificate_{self.current_id}.pdf")
 
-            try:
-                success = self.cert_generator.generate(
-                    result, axis_results, code_info, temp_path
-                )
-                if success:
-                    # PDF 파일 열기 (사용자가 직접 인쇄)
-                    try:
-                        os.startfile(temp_path)
-                        self.statusbar.config(
-                            text=f"PDF opened: Certificate_{self.current_id}.pdf - Please print from the viewer"
-                        )
-                        messagebox.showinfo(
-                            "Print",
-                            "PDF 파일이 열렸습니다.\nPDF 뷰어에서 Ctrl+P를 눌러 인쇄하세요.",
-                        )
-                    except OSError as e:
-                        # PDF 뷰어가 없는 경우 파일 위치 알림
-                        messagebox.showinfo(
-                            "Print",
-                            f"PDF 파일이 생성되었습니다:\n{temp_path}\n\n파일을 열어서 인쇄해주세요.",
-                        )
-                        self.statusbar.config(text=f"PDF saved: {temp_path}")
-                else:
-                    messagebox.showerror("Error", "Failed to generate certificate")
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to print certificate: {e}")
+        try:
+            success = self.cert_generator.generate(
+                result, axis_results, code_info, temp_path
+            )
+            if success:
+                # PDF 파일 열기 (사용자가 직접 인쇄)
+                try:
+                    os.startfile(temp_path)
+                    self.statusbar.config(
+                        text=f"PDF opened: Certificate_{self.current_id}.pdf - Please print from the viewer"
+                    )
+                    messagebox.showinfo(
+                        "Print",
+                        "PDF 파일이 열렸습니다.\nPDF 뷰어에서 Ctrl+P를 눌러 인쇄하세요.",
+                    )
+                except OSError as e:
+                    # PDF 뷰어가 없는 경우 파일 위치 알림
+                    messagebox.showinfo(
+                        "Print",
+                        f"PDF 파일이 생성되었습니다:\n{temp_path}\n\n파일을 열어서 인쇄해주세요.",
+                    )
+                    self.statusbar.config(text=f"PDF saved: {temp_path}")
+            else:
+                messagebox.showerror("Error", "Failed to generate certificate")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to print certificate: {e}")
 
     def _on_settings(self):
         """통신 설정 대화상자"""
@@ -1301,9 +1303,14 @@ class MiniasApp:
 
     def _on_limits(self):
         """한계값 설정 대화상자"""
+        # limits가 None이면 기본값으로 초기화
+        if self.limits is None:
+            self.limits = LimitInfo(test_type="ST")
         LimitsDialog(self.root, self.db, self.limits)
         # 한계값 다시 로드
         self.limits = self.db.get_limits("ST")
+        if self.limits is None:
+            self.limits = LimitInfo(test_type="ST")
 
     def _on_exit(self):
         """프로그램 종료"""

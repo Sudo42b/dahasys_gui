@@ -10,26 +10,14 @@ from typing import List, Optional, Dict, Tuple
 # =============================================================================
 
 
-def mm_to_microns(mm_value: float) -> float:
-    """mm를 micron으로 변환"""
-    return mm_value * 1000.0
+def format_microns(value: float, decimals: int = 1) -> str:
+    """micron 값을 표시 문자열로 변환 (시리얼 값이 이미 micron 단위)"""
+    return f"{value:.{decimals}f}"
 
 
-def microns_to_mm(micron_value: float) -> float:
-    """micron을 mm로 변환"""
-    return micron_value / 1000.0
-
-
-def format_microns(mm_value: float, decimals: int = 1) -> str:
-    """mm 값을 micron 표시 문자열로 변환"""
-    microns = mm_to_microns(mm_value)
-    return f"{microns :.{decimals}f}"
-
-
-def format_2sigma_microns(mm_sigma: float, decimals: int = 1) -> str:
-    """mm sigma 값을 2sigma micron 표시 문자열로 변환"""
-    microns = mm_to_microns(mm_sigma)
-    return f"{microns * 2:.{decimals}f}"
+def format_2sigma_microns(sigma: float, decimals: int = 1) -> str:
+    """sigma 값을 2sigma 표시 문자열로 변환 (시리얼 값이 이미 micron 단위)"""
+    return f"{sigma * 2:.{decimals}f}"
 
 
 @dataclass

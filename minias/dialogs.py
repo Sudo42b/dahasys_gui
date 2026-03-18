@@ -8,7 +8,6 @@ from minias.models import (
     LimitInfo,
     format_microns,
     format_2sigma_microns,
-    microns_to_mm,
 )
 from minias.database import MiniasDatabase
 from minias.serial_comm import SerialCommunicator
@@ -88,14 +87,12 @@ class LimitsDialog:
         self.dialog.wait_window()
 
     def _save(self):
-        """저장"""
+        """저장 — 입력값은 micron 단위, DB에도 micron으로 저장"""
         try:
             self.limits.test_type = "ST"
-            self.limits.mean_sigma = (
-                microns_to_mm(float(self.var_mean_sigma.get())) / 2.0
-            )
-            self.limits.mean_range = microns_to_mm(float(self.var_mean_range.get()))
-            self.limits.worst_range = microns_to_mm(float(self.var_worst_range.get()))
+            self.limits.mean_sigma = float(self.var_mean_sigma.get()) / 2.0
+            self.limits.mean_range = float(self.var_mean_range.get())
+            self.limits.worst_range = float(self.var_worst_range.get())
 
             self.db.save_limits(self.limits)
             messagebox.showinfo("Success", "Limits saved successfully")
