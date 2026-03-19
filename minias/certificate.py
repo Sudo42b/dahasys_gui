@@ -25,7 +25,14 @@ except ImportError:
     PDF_AVAILABLE = False
     print("Warning: reportlab not installed. PDF certificate disabled.")
 
-from minias.models import TestResult, AxisResult, CodeInfo, format_microns, format_2sigma_microns
+from minias.models import (
+    TestResult,
+    AxisResult,
+    CodeInfo,
+    format_microns,
+    format_2sigma_microns,
+    mm_to_microns,
+)
 
 
 class CertificateGenerator:
@@ -252,16 +259,16 @@ class CertificateGenerator:
                 dir_labels[3],
             ],
             [
-                f"R({ncycles})={int(result.worst_range_limit)} micron",
+                f"R({ncycles})={format_microns(result.worst_range_limit)} micron",
                 _fmt_micron(axis_ranges[0]),
                 _fmt_micron(axis_ranges[1]),
                 _fmt_micron(axis_ranges[2]),
                 _fmt_micron(axis_ranges[3]),
             ],
             [
-                f"R({ncycles})={int(result.worst_range_limit)} micron",
+                f"R({ncycles})={format_microns(result.worst_range_limit)} micron",
                 f"{mean_range_val} micron",
-                f"{sum([float(val) for val in axis_ranges])/len(axis_ranges)} micron",
+                f"{sum([float(val) for val in axis_ranges]) / len(axis_ranges):.1f} micron",
             ],
         ]
 
@@ -271,7 +278,7 @@ class CertificateGenerator:
             colWidths=[40 * mm, col_w, col_w, col_w, col_w],
         )
         axis_table.setStyle(
-            TableStyle( #세번째행은 합하여 평균값으로 표시, 첫번째열은 R(ncycles)=worst_range_limit micron으로 표시
+            TableStyle(  # 세번째행은 합하여 평균값으로 표시, 첫번째열은 R(ncycles)=worst_range_limit micron으로 표시
                 [
                     ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
                     ("FONTSIZE", (0, 0), (-1, -1), 9),
@@ -284,8 +291,6 @@ class CertificateGenerator:
                     ("BACKGROUND", (2, 0), (2, 0), colors.Color(0.85, 0.85, 0.85)),
                     ("BACKGROUND", (3, 0), (3, 0), colors.Color(0.85, 0.85, 0.85)),
                     ("BACKGROUND", (4, 0), (4, 0), colors.Color(0.85, 0.85, 0.85)),
-                    
-                    
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                     ("TOPPADDING", (0, 0), (-1, -1), 4),
                     # 3번쨰 행의 1, 2, 3, 4열을 병합
@@ -303,9 +308,9 @@ class CertificateGenerator:
     def _build_z_table(self, elements: list) -> None:
         """Z축 방향 테이블 — Un direct direction (Z-) 및 Dia"""
         # ========== Row 11-12: Un direct direction (Z-) — 3열 구조 ==========
-        col_w = 32 * mm *2
+        col_w = 32 * mm * 2
         z_data = [
-            ["Un direct direction", "Z-", "Dia"], #가운데 정렬된 헤더
+            ["Un direct direction", "Z-", "Dia"],  # 가운데 정렬된 헤더
             ["", "micron", "micron"],
         ]
         z_table = Table(

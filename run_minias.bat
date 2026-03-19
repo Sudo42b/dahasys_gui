@@ -1,4 +1,4 @@
 @echo off
 cd /d "%~dp0"
-uv run python minias_app.py
+uv run python ./minias/app.py
 pause

@@ -156,9 +156,9 @@ class SerialCommunicator:
         """측정값 읽기
 
         장비 데이터 형식 (실측 확인):
-          '01A-000.0018'  →  축 prefix '01A' + 측정값 '-000.0018' (micron 단위)
+          '01A-000.0018'  →  축 prefix '01A' + 측정값 '-000.0018' (mm 단위)
           - 앞 2~3자: 축 번호(숫자) + 채널(영문자)
-           - 나머지: 부호 + 숫자값 (micron 단위)
+           - 나머지: 부호 + 숫자값 (mm 단위, 화면 표시 시 ×1000으로 μm 변환)
         """
         try:
             data = self.data_queue.get(timeout=timeout)

@@ -49,6 +49,12 @@ class MiniasDatabase:
         # LIMITS 테이블 PRIMARY KEY 마이그레이션
         self._migrate_limits_table()
 
+        # LIMITS 값 μm→mm 단위 변환 마이그레이션
+        self._migrate_limits_units()
+
+        # VB6 시대 테스트 데이터 μm→mm 단위 변환 마이그레이션
+        self._migrate_test_data_units()
+
         # 기본 데이터 삽입
         self._insert_default_data()
 
@@ -109,6 +115,123 @@ class MiniasDatabase:
         cursor.execute("SELECT COUNT(*) FROM LIMITS")
         count = cursor.fetchone()[0]
         print(f"LIMITS 테이블 마이그레이션 완료: {count}개 행 (중복 제거)")
+
+    def _migrate_limits_units(self):
+        """LIMITS 값 μm→mm 단위 변환 마이그레이션
+
+        VB6 원본 데이터와 이전 μm 저장 데이터를 mm 단위로 통일한다.
+        MEAN_SIGMA >= 0.1 인 행은 μm 단위로 판단하여 ÷1000 변환.
+        (mm 단위에서 MEAN_SIGMA가 0.1 이상이면 100μm = 비현실적)
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM LIMITS WHERE MEAN_SIGMA >= 0.1")
+        count = cursor.fetchone()[0]
+        if count == 0:
+            return  # 변환 필요 없음
+
+        print(f"LIMITS 단위 변환: {count}개 행 μm→mm 변환 중...")
+        cursor.execute("""
+            UPDATE LIMITS SET
+                MEAN_SIGMA = MEAN_SIGMA / 1000.0,
+                MEAN_RANGE = MEAN_RANGE / 1000.0,
+                WORST_RANGE = WORST_RANGE / 1000.0,
+                MEAN_RANGE_PERFORMANCE = COALESCE(MEAN_RANGE_PERFORMANCE, 0) / 1000.0,
+                WORST_RANGE_PERFORMANCE = COALESCE(WORST_RANGE_PERFORMANCE, 0) / 1000.0,
+                MEAN_RANGE_SECOND = COALESCE(MEAN_RANGE_SECOND, 0) / 1000.0,
+                WORST_RANGE_SECOND = COALESCE(WORST_RANGE_SECOND, 0) / 1000.0
+            WHERE MEAN_SIGMA >= 0.1
+        """)
+        self.conn.commit()
+        print("LIMITS 단위 변환 완료 (μm → mm)")
+
+    def _migrate_test_data_units(self):
+        """VB6 시대 테스트 데이터 μm→mm 단위 변환 마이그레이션
+
+        VB6 원본 데이터는 μm 단위로 저장되어 있지만, Python 앱은 mm 단위를
+        사용한다. VB6 시대 데이터(ID_COL 1~1594)를 ÷1000 하여 mm로 통일한다.
+
+        멱등성: MIGRATIONS 테이블에 'test_data_um_to_mm' 기록이 있으면 스킵.
+        """
+        cursor = self.conn.cursor()
+
+        # 마이그레이션 추적 테이블 생성
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS MIGRATIONS (
+                NAME VARCHAR(100) PRIMARY KEY,
+                APPLIED_AT DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 이미 적용된 마이그레이션인지 확인
+        cursor.execute(
+            "SELECT COUNT(*) FROM MIGRATIONS WHERE NAME = 'test_data_um_to_mm'"
+        )
+        if cursor.fetchone()[0] > 0:
+            return  # 이미 변환 완료
+
+        # VB6 시대 ID_COL 범위: 1~1594 (VB6 앱에서 생성된 행)
+        # Python 앱에서 생성된 행은 ID_COL IS NULL 또는 ID_COL >= 1595
+        VB6_MAX_ID = 1594
+
+        cursor.execute(
+            "SELECT COUNT(*) FROM TEST_RESULTS WHERE ID_COL <= ? AND ID_COL IS NOT NULL",
+            (VB6_MAX_ID,),
+        )
+        vb6_count = cursor.fetchone()[0]
+        if vb6_count == 0:
+            # VB6 데이터 없어도 마이그레이션 완료로 기록
+            cursor.execute(
+                "INSERT INTO MIGRATIONS (NAME) VALUES ('test_data_um_to_mm')"
+            )
+            self.conn.commit()
+            return
+
+        print(f"VB6 테스트 데이터 단위 변환: {vb6_count}개 TEST_RESULTS 행 μm→mm...")
+
+        # 1) TEST_RESULTS: VB6 시대 행의 수치 컬럼 ÷1000
+        cursor.execute(
+            f"""
+            UPDATE TEST_RESULTS SET
+                MEAN_SIGMA = MEAN_SIGMA / 1000.0,
+                MEAN_RANGE = MEAN_RANGE / 1000.0,
+                WORST_SIGMA = WORST_SIGMA / 1000.0,
+                WORST_RANGE = WORST_RANGE / 1000.0,
+                MEAN_SIGMA_LIMIT = MEAN_SIGMA_LIMIT / 1000.0,
+                MEAN_RANGE_LIMIT = MEAN_RANGE_LIMIT / 1000.0,
+                WORST_RANGE_LIMIT = WORST_RANGE_LIMIT / 1000.0
+            WHERE ID_COL <= ? AND ID_COL IS NOT NULL
+        """,
+            (VB6_MAX_ID,),
+        )
+        print(f"  TEST_RESULTS: {cursor.rowcount}개 행 변환")
+
+        # 2) TEST_AXIS_RESULTS: VB6 시대 ID_COL에 해당하는 행 ÷1000
+        cursor.execute(
+            f"""
+            UPDATE TEST_AXIS_RESULTS SET
+                SIGMA = SIGMA / 1000.0,
+                RANGE = RANGE / 1000.0
+            WHERE ID_COL <= ?
+        """,
+            (VB6_MAX_ID,),
+        )
+        print(f"  TEST_AXIS_RESULTS: {cursor.rowcount}개 행 변환")
+
+        # 3) TEST_SAMPLES: VB6 시대 ID_COL에 해당하는 행 ÷1000
+        cursor.execute(
+            f"""
+            UPDATE TEST_SAMPLES SET
+                VALUE = VALUE / 1000.0
+            WHERE ID_COL <= ?
+        """,
+            (VB6_MAX_ID,),
+        )
+        print(f"  TEST_SAMPLES: {cursor.rowcount}개 행 변환")
+
+        # 마이그레이션 완료 기록
+        cursor.execute("INSERT INTO MIGRATIONS (NAME) VALUES ('test_data_um_to_mm')")
+        self.conn.commit()
+        print("VB6 테스트 데이터 단위 변환 완료 (μm → mm)")
 
     def _create_core_tables(self, cursor):
         """기본 테이블 생성 (OPERATORS, CODES)"""
@@ -236,10 +359,10 @@ class MiniasDatabase:
             VALUES ('ST', 100, 4, 1, 1, 1)
         """)
 
-        # 기본 Limits 추가 (micron 단위)
+        # 기본 Limits 추가 (mm 단위 — 화면 표시 시 ×1000으로 μm 변환)
         cursor.execute("""
             INSERT OR IGNORE INTO LIMITS (TEST_TYPE, MEAN_SIGMA, MEAN_RANGE, WORST_RANGE)
-            VALUES ('ST', 5.0, 10.0, 15.0)
+            VALUES ('ST', 0.005, 0.010, 0.015)
         """)
 
         self.conn.commit()
