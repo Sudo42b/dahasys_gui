@@ -81,7 +81,7 @@ class CertificateGenerator:
 
             print(f"PDF generation error: {e}")
             traceback.print_exc()
-            return False
+            raise
 
     def _setup_styles(self) -> dict:
         """PDF 스타일 설정"""
@@ -250,6 +250,14 @@ class CertificateGenerator:
             """데이터 값에 micron 단위 병합 (빈 값이면 그대로 반환)"""
             return f"{val} micron" if val and val != "-" else val
 
+        # Mean Range 평균 계산 (숫자 축만 포함, "-"는 제외)
+        numeric_ranges = [float(v) for v in axis_ranges if v != "-"]
+        avg_range_str = (
+            f"{sum(numeric_ranges) / len(numeric_ranges):.1f}"
+            if numeric_ranges
+            else "-"
+        )
+
         axis_data = [
             [
                 "Direction",
@@ -266,9 +274,11 @@ class CertificateGenerator:
                 _fmt_micron(axis_ranges[3]),
             ],
             [
-                f"R({ncycles})={format_microns(result.worst_range_limit)} micron",
+                f"Mean Range",
                 f"{mean_range_val} micron",
-                f"{sum([float(val) for val in axis_ranges]) / len(axis_ranges):.1f} micron",
+                "",
+                "",
+                "",
             ],
         ]
 
@@ -278,7 +288,7 @@ class CertificateGenerator:
             colWidths=[40 * mm, col_w, col_w, col_w, col_w],
         )
         axis_table.setStyle(
-            TableStyle(  # 세번째행은 합하여 평균값으로 표시, 첫번째열은 R(ncycles)=worst_range_limit micron으로 표시
+            TableStyle(
                 [
                     ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
                     ("FONTSIZE", (0, 0), (-1, -1), 9),
@@ -293,10 +303,8 @@ class CertificateGenerator:
                     ("BACKGROUND", (4, 0), (4, 0), colors.Color(0.85, 0.85, 0.85)),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                     ("TOPPADDING", (0, 0), (-1, -1), 4),
-                    # 3번쨰 행의 1, 2, 3, 4열을 병합
+                    # 3번째 행(Mean)의 1~4열을 병합
                     ("SPAN", (1, 2), (4, 2)),
-                    ("SPAN", (1, 3), (4, 3)),
-                    ("SPAN", (1, 4), (4, 4)),
                 ]
             )
         )
