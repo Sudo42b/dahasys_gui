@@ -55,6 +55,9 @@ class MiniasDatabase:
         # VB6 시대 테스트 데이터 μm→mm 단위 변환 마이그레이션
         self._migrate_test_data_units()
 
+        # NULL ID_COL 복구 마이그레이션
+        self._migrate_null_id_col()
+
         # 기본 데이터 삽입
         self._insert_default_data()
 
@@ -232,6 +235,51 @@ class MiniasDatabase:
         cursor.execute("INSERT INTO MIGRATIONS (NAME) VALUES ('test_data_um_to_mm')")
         self.conn.commit()
         print("VB6 테스트 데이터 단위 변환 완료 (μm → mm)")
+
+    def _migrate_null_id_col(self):
+        """NULL ID_COL 행 복구 마이그레이션
+
+        MDB 마이그레이션 DB에서 ID_COL이 AUTOINCREMENT가 아닌 경우,
+        Python 앱이 ID_COL 없이 INSERT하여 NULL이 된 행을 복구한다.
+        관련된 TEST_AXIS_RESULTS, TEST_SAMPLES 행의 ID_COL도 함께 갱신.
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM TEST_RESULTS WHERE ID_COL IS NULL")
+        null_count = cursor.fetchone()[0]
+        if null_count == 0:
+            return
+
+        print(f"NULL ID_COL 복구: {null_count}개 행...")
+        cursor.execute("SELECT COALESCE(MAX(ID_COL), 0) FROM TEST_RESULTS")
+        max_id = cursor.fetchone()[0]
+
+        cursor.execute(
+            "SELECT rowid FROM TEST_RESULTS WHERE ID_COL IS NULL ORDER BY rowid"
+        )
+        null_rows = cursor.fetchall()
+
+        for i, row in enumerate(null_rows, 1):
+            new_id = max_id + i
+            old_rowid = row[0]
+            # TEST_RESULTS 행에 ID 할당
+            cursor.execute(
+                "UPDATE TEST_RESULTS SET ID_COL = ? WHERE rowid = ?",
+                (new_id, old_rowid),
+            )
+            # 관련 테이블: axis results, samples는 old_rowid 값으로 저장되어 있음
+            cursor.execute(
+                "UPDATE TEST_AXIS_RESULTS SET ID_COL = ? WHERE ID_COL = ?",
+                (new_id, old_rowid),
+            )
+            cursor.execute(
+                "UPDATE TEST_SAMPLES SET ID_COL = ? WHERE ID_COL = ?",
+                (new_id, old_rowid),
+            )
+
+        self.conn.commit()
+        print(
+            f"NULL ID_COL 복구 완료: {null_count}개 행에 ID {max_id + 1}~{max_id + null_count} 할당"
+        )
 
     def _create_core_tables(self, cursor):
         """기본 테이블 생성 (OPERATORS, CODES)"""
@@ -586,17 +634,25 @@ class MiniasDatabase:
 
     # --- TEST_RESULTS ---
     def save_test_result(self, result: TestResult) -> int:
-        """테스트 결과 저장"""
+        """테스트 결과 저장
+
+        MDB 마이그레이션 DB에서는 ID_COL이 AUTOINCREMENT가 아니므로
+        명시적으로 MAX(ID_COL)+1 값을 할당한다.
+        """
         cursor = self.conn.cursor()
+        cursor.execute("SELECT COALESCE(MAX(ID_COL), 0) + 1 FROM TEST_RESULTS")
+        next_id = cursor.fetchone()[0]
+
         cursor.execute(
             """
             INSERT INTO TEST_RESULTS
-            (DATE, CODE, SERIAL_NUMBER, OPERATOR, TEST, RESULT,
+            (ID_COL, DATE, CODE, SERIAL_NUMBER, OPERATOR, TEST, RESULT,
              MEAN_SIGMA, MEAN_RANGE, WORST_SIGMA, WORST_RANGE,
              MEAN_SIGMA_LIMIT, MEAN_RANGE_LIMIT, WORST_RANGE_LIMIT, SECOND_TEST)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
+                next_id,
                 result.date.isoformat(),
                 result.code,
                 result.serial_number,
@@ -614,7 +670,7 @@ class MiniasDatabase:
             ),
         )
         self.conn.commit()
-        return cursor.lastrowid
+        return next_id
 
     def get_test_result(self, id_col: int) -> Optional[TestResult]:
         """특정 테스트 결과 조회"""
